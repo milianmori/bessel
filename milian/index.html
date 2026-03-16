@@ -10,12 +10,7 @@
     <div class="app-shell">
       <header class="hero panel">
         <div>
-          <p class="eyebrow">Philip Meyer Patcher → Browser Engine</p>
           <h1>Ersatz Bessel JS</h1>
-          <p class="lede">
-            Web-basierte Echtzeit-Übersetzung des Max-Patchers mit 16 Bessel-Moden,
-            Click- und Noise-Anregung, Step-Amp-Sequencer und Live-Visualisierung.
-          </p>
         </div>
 
         <div class="transport-cluster">
@@ -35,7 +30,7 @@
       </header>
 
       <main class="layout">
-        <section class="panel">
+        <section class="panel macro-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Makro</p>
@@ -45,7 +40,7 @@
           <div class="controls-grid" id="scalar-controls"></div>
         </section>
 
-        <section class="panel">
+        <section class="panel analysis-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Analyse</p>
@@ -59,7 +54,7 @@
                 <span>Freqs</span>
                 <span id="freq-summary"></span>
               </div>
-              <canvas id="freq-canvas" width="640" height="240"></canvas>
+              <canvas id="freq-canvas" class="viz-canvas" width="640" height="240"></canvas>
             </article>
 
             <article class="viz-card">
@@ -67,7 +62,7 @@
                 <span>Weights</span>
                 <span id="weight-summary"></span>
               </div>
-              <canvas id="weight-canvas" width="640" height="240"></canvas>
+              <canvas id="weight-canvas" class="viz-canvas" width="640" height="240"></canvas>
             </article>
 
             <article class="viz-card wide">
@@ -75,12 +70,12 @@
                 <span>Live Scope</span>
                 <span id="scope-summary"></span>
               </div>
-              <canvas id="scope-canvas" width="1280" height="240"></canvas>
+              <canvas id="scope-canvas" class="viz-canvas viz-canvas-wide" width="1280" height="240"></canvas>
             </article>
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel click-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Click Buffer</p>
@@ -88,10 +83,15 @@
             </div>
             <p class="panel-note">64-Sample-Multislider wie im Max-Patcher.</p>
           </div>
-          <canvas id="click-shape-canvas" class="editor-canvas" width="960" height="220"></canvas>
+          <canvas
+            id="click-shape-canvas"
+            class="editor-canvas compact-editor-canvas"
+            width="960"
+            height="220"
+          ></canvas>
         </section>
 
-        <section class="panel">
+        <section class="panel envelope-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Noise Envelope</p>
@@ -103,7 +103,12 @@
             </div>
           </div>
 
-          <canvas id="noise-envelope-canvas" class="editor-canvas" width="960" height="280"></canvas>
+          <canvas
+            id="noise-envelope-canvas"
+            class="editor-canvas tall-editor-canvas"
+            width="960"
+            height="280"
+          ></canvas>
 
           <div class="controls-grid compact-grid">
             <label class="control">
@@ -114,7 +119,7 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel pattern-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Step Pattern</p>
@@ -122,7 +127,12 @@
             </div>
             <p class="panel-note">16 Trigger-Stärken, gespiegelt aus `stash~` + `what~`.</p>
           </div>
-          <canvas id="amps-canvas" class="editor-canvas" width="960" height="220"></canvas>
+          <canvas
+            id="amps-canvas"
+            class="editor-canvas compact-editor-canvas"
+            width="960"
+            height="220"
+          ></canvas>
         </section>
       </main>
     </div>
