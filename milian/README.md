@@ -22,6 +22,8 @@ http://localhost:5173
 - Mehrere layerbare Voices mit gemeinsamem BPM
 - `+ Voice` klont die aktive Voice inklusive aller lokalen Parameter
 - Pro Voice eigene Preset-Auswahl, Randomize, Mute und Editoren
+- Eigene User-Presets werden lokal im Browser gespeichert und koennen pro Voice aktualisiert oder geloescht werden
+- Letzte Session wird lokal wiederhergestellt, damit Debug- und Recall-Staende nach Reload erhalten bleiben
 - 16 Bessel-Moden aus den Original-Nullstellen
 - Echtzeit-Exciter aus `click_shape`, `amps`, `nz_env`
 - Pitch-Envelope mit Dauer, Range und Curve

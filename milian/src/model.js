@@ -13,6 +13,20 @@ const DEFAULT_NOISE_ENV = {
   ],
 };
 
+const DEFAULT_PRESET_VALUES = {
+  tuning: 440,
+  size: 0.5,
+  hitPosition: 0.5,
+  damping: 0.5,
+  overtones: 0.52,
+  pitchEnvCurve: 0,
+  pitchEnvDurMs: 50,
+  pitchEnvRange: 0,
+  nzEnvDurMs: 50,
+  tempo: 118,
+  masterGain: 0.72,
+};
+
 export async function loadPresets() {
   const response = await fetch(`${import.meta.env.BASE_URL}data/presets.json`);
 
@@ -25,7 +39,14 @@ export async function loadPresets() {
 
   return Object.entries(slots)
     .sort((a, b) => Number(a[0]) - Number(b[0]))
-    .map(([slotId, slot]) => normalizePreset(slotId, slot?.data ?? {}));
+    .map(([slotId, slot]) =>
+      normalizePresetDefinition({
+        id: Number(slotId),
+        name: `Preset ${slotId}`,
+        source: "factory",
+        data: slot?.data ?? {},
+      }),
+    );
 }
 
 export function cloneState(state) {
@@ -37,6 +58,85 @@ export function cloneState(state) {
       domainMs: state.noiseEnvelope.domainMs,
       points: state.noiseEnvelope.points.map((point) => ({ ...point })),
     },
+  };
+}
+
+export function createPresetFromVoice(voice, metadata = {}) {
+  const timestamp = Date.now();
+
+  return normalizePresetDefinition({
+    id: metadata.id ?? timestamp,
+    name: metadata.name ?? voice.presetName ?? `User Preset ${timestamp}`,
+    source: metadata.source ?? "user",
+    createdAt: metadata.createdAt ?? timestamp,
+    updatedAt: metadata.updatedAt ?? timestamp,
+    data: voice,
+  });
+}
+
+export function normalizeStoredUserPreset(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  return normalizePresetDefinition({
+    id: raw.id ?? Date.now(),
+    name: raw.name ?? "User Preset",
+    source: "user",
+    createdAt: raw.createdAt ?? null,
+    updatedAt: raw.updatedAt ?? raw.createdAt ?? null,
+    data: raw,
+  });
+}
+
+export function restoreVoiceState(raw) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const normalizedState = normalizeVoicePayload(raw);
+  const voiceId = Number(raw.voiceId);
+
+  return {
+    ...normalizedState,
+    voiceId: Number.isFinite(voiceId) && voiceId > 0 ? voiceId : 1,
+    presetId: normalizePresetId(raw.presetId),
+    presetName: sanitizeName(raw.presetName, "Session Voice"),
+    presetSource: normalizePresetSource(raw.presetSource),
+    muted: Boolean(raw.muted),
+  };
+}
+
+export function serializePresetState(preset) {
+  const normalized = normalizePresetDefinition({
+    id: preset.id,
+    name: preset.name,
+    source: "user",
+    createdAt: preset.createdAt ?? null,
+    updatedAt: preset.updatedAt ?? null,
+    data: preset,
+  });
+
+  return {
+    id: normalized.id,
+    name: normalized.name,
+    source: normalized.source,
+    createdAt: normalized.createdAt,
+    updatedAt: normalized.updatedAt,
+    ...serializeVoicePayload(normalized),
+  };
+}
+
+export function serializeVoiceState(voice) {
+  const restoredVoice = restoreVoiceState(voice);
+
+  return {
+    voiceId: restoredVoice?.voiceId ?? 1,
+    presetId: restoredVoice?.presetId ?? null,
+    presetName: restoredVoice?.presetName ?? "Session Voice",
+    presetSource: restoredVoice?.presetSource ?? "factory",
+    muted: Boolean(restoredVoice?.muted),
+    ...serializeVoicePayload(restoredVoice ?? {}),
   };
 }
 
@@ -174,29 +274,25 @@ export function normalizeEnvelopePoints(points) {
   return sorted;
 }
 
-function normalizePreset(slotId, data) {
+function normalizePresetDefinition({ id, name, source = "factory", createdAt = null, updatedAt = null, data = {} }) {
   return {
-    id: Number(slotId),
-    name: `Preset ${slotId}`,
-    tuning: data.tuning?.[0] ?? 440,
-    size: data.size?.[0] ?? 0.5,
-    hitPosition: data.hit_pos?.[0] ?? 0.5,
-    damping: data.damping?.[0] ?? 0.5,
-    overtones: data.overtones?.[0] ?? 0.52,
-    clickShape: ensureLength(data.click_shape, 64, 0.5),
-    amps: ensureLength(data.amps, 16, 0.6),
-    noiseEnvelope: parseNoiseEnvelope(data.noiz_env),
-    pitchEnvCurve: data.pitch_env_curve?.[0] ?? 0,
-    pitchEnvDurMs: data.pitch_env_dur?.[0] ?? 50,
-    pitchEnvRange: data.pitch_env_range?.[0] ?? 0,
-    nzEnvDurMs: data.nz_env_dur?.[0] ?? 50,
-    tempo: 118,
-    masterGain: 0.72,
-    running: false,
+    id: normalizePresetId(id) ?? Date.now(),
+    name: sanitizeName(name, `Preset ${id}`),
+    source: normalizePresetSource(source),
+    createdAt: normalizeTimestamp(createdAt),
+    updatedAt: normalizeTimestamp(updatedAt),
+    ...normalizeVoicePayload(data),
   };
 }
 
 function parseNoiseEnvelope(raw = []) {
+  if (raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray(raw.points)) {
+    return {
+      domainMs: Math.max(readScalar(raw.domainMs, DEFAULT_NOISE_ENV.domainMs), 1),
+      points: normalizeEnvelopePoints(raw.points),
+    };
+  }
+
   if (!Array.isArray(raw) || raw.length < 8) {
     return {
       domainMs: DEFAULT_NOISE_ENV.domainMs,
@@ -222,8 +318,102 @@ function parseNoiseEnvelope(raw = []) {
 }
 
 function ensureLength(values, length, fallback) {
-  const output = Array.from({ length }, (_, index) => clamp(values?.[index] ?? fallback, 0, 1));
+  const source = Array.isArray(values) ? values : [];
+  const output = Array.from({ length }, (_, index) => clamp(source[index] ?? fallback, 0, 1));
   return output;
+}
+
+function normalizeVoicePayload(raw = {}) {
+  return {
+    tuning: readScalar(raw.tuning, DEFAULT_PRESET_VALUES.tuning),
+    size: clamp(readScalar(raw.size, DEFAULT_PRESET_VALUES.size), 0.05, 1),
+    hitPosition: clamp(readScalar(raw.hitPosition ?? raw.hit_pos, DEFAULT_PRESET_VALUES.hitPosition), 0, 1),
+    damping: clamp(readScalar(raw.damping, DEFAULT_PRESET_VALUES.damping), 0, 1),
+    overtones: clamp(readScalar(raw.overtones, DEFAULT_PRESET_VALUES.overtones), 0, 1),
+    clickShape: ensureLength(raw.clickShape ?? raw.click_shape, 64, 0.5),
+    amps: ensureLength(raw.amps, 16, 0.6),
+    noiseEnvelope: parseNoiseEnvelope(raw.noiseEnvelope ?? raw.noiz_env),
+    pitchEnvCurve: clamp(
+      readScalar(raw.pitchEnvCurve ?? raw.pitch_env_curve, DEFAULT_PRESET_VALUES.pitchEnvCurve),
+      -1,
+      1,
+    ),
+    pitchEnvDurMs: clamp(
+      readScalar(raw.pitchEnvDurMs ?? raw.pitch_env_dur, DEFAULT_PRESET_VALUES.pitchEnvDurMs),
+      0,
+      500,
+    ),
+    pitchEnvRange: clamp(
+      readScalar(raw.pitchEnvRange ?? raw.pitch_env_range, DEFAULT_PRESET_VALUES.pitchEnvRange),
+      -24,
+      24,
+    ),
+    nzEnvDurMs: clamp(
+      readScalar(raw.nzEnvDurMs ?? raw.nz_env_dur, DEFAULT_PRESET_VALUES.nzEnvDurMs),
+      0,
+      220,
+    ),
+    tempo: DEFAULT_PRESET_VALUES.tempo,
+    masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0.2, 1.4),
+    running: false,
+  };
+}
+
+function serializeVoicePayload(raw = {}) {
+  const normalizedState = normalizeVoicePayload(raw);
+
+  return {
+    tuning: normalizedState.tuning,
+    size: normalizedState.size,
+    hitPosition: normalizedState.hitPosition,
+    damping: normalizedState.damping,
+    overtones: normalizedState.overtones,
+    clickShape: [...normalizedState.clickShape],
+    amps: [...normalizedState.amps],
+    noiseEnvelope: {
+      domainMs: normalizedState.noiseEnvelope.domainMs,
+      points: normalizedState.noiseEnvelope.points.map((point) => ({ ...point })),
+    },
+    pitchEnvCurve: normalizedState.pitchEnvCurve,
+    pitchEnvDurMs: normalizedState.pitchEnvDurMs,
+    pitchEnvRange: normalizedState.pitchEnvRange,
+    nzEnvDurMs: normalizedState.nzEnvDurMs,
+    masterGain: normalizedState.masterGain,
+  };
+}
+
+function readScalar(value, fallback) {
+  const candidate = Array.isArray(value) ? value[0] : value;
+
+  if (candidate === null || candidate === undefined || candidate === "") {
+    return fallback;
+  }
+
+  const numeric = Number(candidate);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizePresetId(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function normalizePresetSource(source) {
+  return source === "user" ? "user" : source === "detached" ? "detached" : "factory";
+}
+
+function normalizeTimestamp(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function sanitizeName(value, fallback) {
+  const sanitized = typeof value === "string" ? value.trim().slice(0, 48) : "";
+  return sanitized || fallback;
 }
 
 function weightToQ(weight) {

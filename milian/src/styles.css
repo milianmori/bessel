@@ -65,6 +65,12 @@ button.ghost {
   background: rgba(255, 255, 255, 0.04);
 }
 
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  transform: none;
+}
+
 button.danger {
   color: #ffd6d5;
   border-color: rgba(242, 95, 92, 0.18);
@@ -220,6 +226,19 @@ h3 {
   width: 100%;
 }
 
+.control input[type="text"] {
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  padding: 0.55rem 0.85rem;
+}
+
+.control input[type="text"]::placeholder {
+  color: rgba(237, 241, 246, 0.42);
+}
+
 .control output,
 .control select {
   color: var(--text);
@@ -277,12 +296,28 @@ select {
   box-shadow: inset 0 0 0 1px rgba(240, 176, 117, 0.18);
 }
 
-.voice-card-head,
-.voice-toolbar {
+.voice-card-head {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
   align-items: start;
+}
+
+.voice-toolbar {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(180px, 240px) minmax(220px, 1fr) auto;
+  align-items: end;
+}
+
+.voice-preset-name-control,
+.voice-preset-name-control input {
+  min-width: 0;
+}
+
+.voice-preset-buttons {
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .voice-card-title {
@@ -295,8 +330,8 @@ select {
 
 .voice-state-line {
   margin: 0;
-  align-self: center;
-  text-align: right;
+  grid-column: 1 / -1;
+  text-align: left;
   font-size: 0.88rem;
 }
 
@@ -411,9 +446,12 @@ canvas {
   }
 
   .voice-card-head,
-  .voice-toolbar,
   .panel-head {
     flex-direction: column;
+  }
+
+  .voice-toolbar {
+    grid-template-columns: 1fr;
   }
 
   .voice-state-line {
