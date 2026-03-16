@@ -15,6 +15,7 @@ const elements = {
   presetSelect: document.querySelector("#preset-select"),
   startButton: document.querySelector("#start-button"),
   triggerButton: document.querySelector("#trigger-button"),
+  randomButton: document.querySelector("#random-button"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
   scalarControls: document.querySelector("#scalar-controls"),
@@ -200,6 +201,10 @@ function wireActions() {
     setStatus("Einzelschlag ausgelöst.");
   });
 
+  elements.randomButton.addEventListener("click", () => {
+    randomizeVisibleParameters();
+  });
+
   elements.addPointButton.addEventListener("click", () => {
     envelopeEditor.addPoint();
     state.noiseEnvelope.points = envelopeEditor.points.map((point) => ({ ...point }));
@@ -288,6 +293,21 @@ function updateCurveControl() {
 
 function setStatus(message) {
   elements.statusLine.textContent = message;
+}
+
+function randomizeVisibleParameters() {
+  scalarDefinitions.forEach((definition) => {
+    state[definition.key] = randomizeScalarValue(definition);
+  });
+
+  state.clickShape = Array.from({ length: state.clickShape.length }, () => Math.random());
+  state.amps = Array.from({ length: state.amps.length }, () => Math.random());
+  state.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
+
+  refreshScalarControls();
+  refreshEditors();
+  syncAll();
+  setStatus("Sichtbare Parameter randomisiert.");
 }
 
 function drawBars(canvas, values, { color, baseline = 0, maxValue = null }) {
@@ -395,4 +415,55 @@ function fromSliderValue(definition, value) {
   const min = Math.log(definition.min);
   const max = Math.log(definition.max);
   return Math.exp(min + value * (max - min));
+}
+
+function randomizeScalarValue(definition) {
+  if (definition.transform === "log") {
+    return fromSliderValue(definition, Math.random());
+  }
+
+  return randomInRange(definition.min, definition.max, definition.step);
+}
+
+function createRandomNoiseEnvelopePoints() {
+  const thirdPointTime = randomInRange(0.12, 1, 0.001);
+  const secondPointTime = randomInRange(0.06, thirdPointTime - 0.06, 0.001);
+
+  return [
+    { time: 0, value: 0, curve: 0 },
+    {
+      time: secondPointTime,
+      value: randomInRange(0, 1, 0.001),
+      curve: randomInRange(-1, 1, 0.001),
+    },
+    {
+      time: thirdPointTime,
+      value: 0,
+      curve: randomInRange(-1, 1, 0.001),
+    },
+  ];
+}
+
+function randomInRange(min, max, step = null) {
+  const value = min + Math.random() * (max - min);
+
+  if (!step) {
+    return value;
+  }
+
+  const steps = Math.round((value - min) / step);
+  const rounded = min + steps * step;
+  const precision = Math.max(0, countDecimals(step));
+
+  return Number(clamp(rounded, min, max).toFixed(precision));
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function countDecimals(value) {
+  const valueAsString = String(value);
+  const decimals = valueAsString.split(".")[1];
+  return decimals ? decimals.length : 0;
 }
