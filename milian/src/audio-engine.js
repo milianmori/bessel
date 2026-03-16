@@ -5,7 +5,7 @@ export class BesselAudioEngine {
     this.context = null;
     this.node = null;
     this.analyser = null;
-    this.lastModalData = { frequencies: [], weights: [], qCoefficients: [] };
+    this.lastModalDataByVoice = [];
     this.onStep = null;
   }
 
@@ -47,16 +47,16 @@ export class BesselAudioEngine {
 
   sync(state, options = {}) {
     const sampleRate = this.context?.sampleRate ?? 44100;
-    this.lastModalData = computeModalData(state, sampleRate);
+    this.lastModalDataByVoice = state.voices.map((voice) => computeModalData(voice, sampleRate));
 
     if (this.node) {
       this.node.port.postMessage({
         type: "config",
-        config: buildProcessorConfig(state, this.lastModalData, options),
+        config: buildProcessorConfig(state, this.lastModalDataByVoice, options),
       });
     }
 
-    return this.lastModalData;
+    return this.lastModalDataByVoice;
   }
 
   trigger() {
@@ -66,20 +66,28 @@ export class BesselAudioEngine {
   }
 }
 
-function buildProcessorConfig(state, modalData, options) {
+function buildProcessorConfig(state, modalDataByVoice, options) {
   return {
     running: state.running,
     tempo: state.tempo,
-    masterGain: state.masterGain,
-    pitchEnvDurMs: state.pitchEnvDurMs,
-    pitchEnvCurve: state.pitchEnvCurve,
-    pitchEnvRange: state.pitchEnvRange,
-    nzEnvDurMs: state.nzEnvDurMs,
-    clickShape: [...state.clickShape],
-    amps: [...state.amps],
-    noiseEnvelopePoints: state.noiseEnvelope.points.map((point) => ({ ...point })),
-    frequencies: [...modalData.frequencies],
-    qCoefficients: [...modalData.qCoefficients],
     resetTransport: Boolean(options.resetTransport),
+    voices: state.voices.map((voice, index) => {
+      const modalData = modalDataByVoice[index];
+
+      return {
+        voiceId: voice.voiceId,
+        muted: Boolean(voice.muted),
+        masterGain: voice.masterGain,
+        pitchEnvDurMs: voice.pitchEnvDurMs,
+        pitchEnvCurve: voice.pitchEnvCurve,
+        pitchEnvRange: voice.pitchEnvRange,
+        nzEnvDurMs: voice.nzEnvDurMs,
+        clickShape: [...voice.clickShape],
+        amps: [...voice.amps],
+        noiseEnvelopePoints: voice.noiseEnvelope.points.map((point) => ({ ...point })),
+        frequencies: [...modalData.frequencies],
+        qCoefficients: [...modalData.qCoefficients],
+      };
+    }),
   };
 }

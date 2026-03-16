@@ -12,30 +12,26 @@ import { EnvelopeEditor } from "./ui/envelope-editor.js";
 const engine = new BesselAudioEngine();
 
 const elements = {
-  presetSelect: document.querySelector("#preset-select"),
   startButton: document.querySelector("#start-button"),
   triggerButton: document.querySelector("#trigger-button"),
-  randomButton: document.querySelector("#random-button"),
+  addVoiceButton: document.querySelector("#add-voice-button"),
+  tempoInput: document.querySelector("#tempo-input"),
+  tempoOutput: document.querySelector("#tempo-output"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
-  scalarControls: document.querySelector("#scalar-controls"),
+  voiceList: document.querySelector("#voice-list"),
+  analysisVoiceLabel: document.querySelector("#analysis-voice-label"),
   freqCanvas: document.querySelector("#freq-canvas"),
   weightCanvas: document.querySelector("#weight-canvas"),
   scopeCanvas: document.querySelector("#scope-canvas"),
   freqSummary: document.querySelector("#freq-summary"),
   weightSummary: document.querySelector("#weight-summary"),
   scopeSummary: document.querySelector("#scope-summary"),
-  clickShapeCanvas: document.querySelector("#click-shape-canvas"),
-  ampsCanvas: document.querySelector("#amps-canvas"),
-  noiseEnvelopeCanvas: document.querySelector("#noise-envelope-canvas"),
-  addPointButton: document.querySelector("#add-point-button"),
-  removePointButton: document.querySelector("#remove-point-button"),
-  segmentCurve: document.querySelector("#segment-curve"),
-  segmentCurveValue: document.querySelector("#segment-curve-value"),
 };
 
-const scalarDefinitions = [
-  { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 },
+const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
+
+const voiceScalarDefinitions = [
   { key: "tuning", label: "Tuning", min: 20, max: 12000, step: 1, transform: "log" },
   { key: "size", label: "Size", min: 0.05, max: 1, step: 0.001 },
   { key: "hitPosition", label: "Hit Position", min: 0, max: 1, step: 0.001 },
@@ -49,13 +45,10 @@ const scalarDefinitions = [
 ];
 
 let presets = [];
-let state = null;
-let clickSlider = null;
-let ampsSlider = null;
-let envelopeEditor = null;
-let controlOutputs = new Map();
-let controlInputs = new Map();
+let appState = null;
+let voiceViews = new Map();
 let analyserBuffer = null;
+let nextVoiceId = 1;
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -65,34 +58,372 @@ bootstrap().catch((error) => {
 async function bootstrap() {
   buildStepGrid();
   presets = await loadPresets();
-  state = cloneState(presets[0]);
 
-  populatePresetSelect();
-  buildScalarControls();
-  buildEditors();
-  wireActions();
-
-  engine.onStep = ({ stepIndex, amplitude }) => {
-    updateStepGrid(stepIndex, amplitude);
+  const firstVoice = createVoiceFromPreset(presets[0]);
+  appState = {
+    running: false,
+    tempo: 118,
+    activeVoiceId: firstVoice.voiceId,
+    voices: [firstVoice],
   };
 
+  wireGlobalActions();
+  renderVoiceCards();
+
+  engine.onStep = ({ stepIndex, amplitudes }) => {
+    updateStepGrid(stepIndex, amplitudes);
+  };
+
+  refreshTransportControls();
   syncAll({ resetTransport: true });
   renderScopeLoop();
 }
 
-function populatePresetSelect() {
+function createVoiceFromPreset(preset, overrides = {}) {
+  const voice = cloneState(preset);
+  voice.voiceId = overrides.voiceId ?? nextVoiceId++;
+  voice.presetId = preset.id;
+  voice.presetName = preset.name;
+  voice.muted = overrides.muted ?? false;
+  return voice;
+}
+
+function createVoiceClone(sourceVoice) {
+  const voice = cloneState(sourceVoice);
+  voice.voiceId = nextVoiceId++;
+  voice.muted = false;
+  return voice;
+}
+
+function getVoiceById(voiceId) {
+  return appState.voices.find((voice) => voice.voiceId === voiceId) ?? null;
+}
+
+function getVoiceIndexById(voiceId) {
+  return appState.voices.findIndex((voice) => voice.voiceId === voiceId);
+}
+
+function getActiveVoice() {
+  return getVoiceById(appState.activeVoiceId) ?? appState.voices[0] ?? null;
+}
+
+function wireGlobalActions() {
+  elements.startButton.addEventListener("click", async () => {
+    appState.running = !appState.running;
+
+    if (appState.running) {
+      await engine.start(appState);
+      setStatus("Audio laeuft. Gemeinsamer Transport aktiv.");
+    } else {
+      engine.sync(appState, { resetTransport: false });
+      setStatus("Transport gestoppt. Resonanzen klingen weiter aus.");
+    }
+
+    refreshTransportControls();
+  });
+
+  elements.triggerButton.addEventListener("click", async () => {
+    await engine.ensureReady();
+    await engine.context.resume();
+    engine.sync(appState);
+    engine.trigger();
+    setStatus("Einzelschlag fuer alle Voices ausgeloest.");
+  });
+
+  elements.addVoiceButton.addEventListener("click", () => {
+    const sourceVoice = getActiveVoice() ?? appState.voices[0];
+    const newVoice = createVoiceClone(sourceVoice);
+    appState.voices.push(newVoice);
+    setActiveVoice(newVoice.voiceId, { renderCards: false });
+    renderVoiceCards();
+    syncAll();
+    setStatus(`Voice ${appState.voices.length} hinzugefuegt.`);
+  });
+
+  elements.tempoInput.addEventListener("input", () => {
+    appState.tempo = fromSliderValue(tempoDefinition, Number(elements.tempoInput.value));
+    refreshTransportControls();
+    syncAll();
+  });
+}
+
+function refreshTransportControls() {
+  elements.tempoInput.value = String(toSliderValue(tempoDefinition, appState.tempo));
+  elements.tempoOutput.textContent = formatValue("tempo", appState.tempo);
+  elements.startButton.textContent = appState.running ? "Audio stoppen" : "Audio starten";
+}
+
+function renderVoiceCards() {
+  voiceViews.forEach((view) => destroyVoiceView(view));
+  voiceViews.clear();
+  elements.voiceList.textContent = "";
+
+  appState.voices.forEach((voice, index) => {
+    const view = createVoiceCardShell(voice, index);
+    elements.voiceList.append(view.root);
+    initializeVoiceCard(view, voice.voiceId, index);
+    voiceViews.set(voice.voiceId, view);
+    refreshVoiceView(view);
+  });
+
+  refreshActiveVoiceStyles();
+}
+
+function createVoiceCardShell(voice, index) {
+  const root = document.createElement("section");
+  root.className = "voice-card";
+  root.dataset.voiceId = String(voice.voiceId);
+  root.innerHTML = `
+    <div class="voice-card-head">
+      <div>
+        <p class="eyebrow">Voice ${index + 1}</p>
+        <h2 class="voice-card-title"></h2>
+      </div>
+      <div class="button-row voice-actions">
+        <button type="button" class="ghost voice-focus-button">Analyse</button>
+        <button type="button" class="ghost voice-random-button">Random Voice ${index + 1}</button>
+        <button type="button" class="ghost voice-mute-button"></button>
+        ${appState.voices.length > 1 ? '<button type="button" class="ghost danger voice-remove-button">Entfernen</button>' : ""}
+      </div>
+    </div>
+
+    <div class="voice-toolbar">
+      <label class="control compact">
+        <span>Preset</span>
+        <select class="voice-preset-select"></select>
+      </label>
+      <p class="voice-state-line"></p>
+    </div>
+
+    <div class="voice-card-grid">
+      <section class="voice-subpanel">
+        <div class="panel-head voice-subhead">
+          <div>
+            <p class="eyebrow">Makro</p>
+            <h3>Voice Settings</h3>
+          </div>
+        </div>
+        <div class="controls-grid voice-scalar-controls"></div>
+      </section>
+
+      <section class="voice-subpanel">
+        <div class="panel-head voice-subhead">
+          <div>
+            <p class="eyebrow">Click Buffer</p>
+            <h3>Click Shape</h3>
+          </div>
+          <p class="panel-note">64-Sample-Multislider pro Voice.</p>
+        </div>
+        <canvas class="editor-canvas compact-editor-canvas voice-click-canvas" width="960" height="220"></canvas>
+      </section>
+
+      <section class="voice-subpanel">
+        <div class="panel-head voice-subhead">
+          <div>
+            <p class="eyebrow">Noise Envelope</p>
+            <h3>nz_env Function</h3>
+          </div>
+          <div class="button-row">
+            <button type="button" class="ghost voice-add-point-button">Punkt addieren</button>
+            <button type="button" class="ghost voice-remove-point-button">Punkt entfernen</button>
+          </div>
+        </div>
+        <canvas class="editor-canvas tall-editor-canvas voice-envelope-canvas" width="960" height="280"></canvas>
+        <div class="controls-grid compact-grid">
+          <label class="control">
+            <span>Segment Curve</span>
+            <input class="voice-segment-curve" type="range" min="-1" max="1" step="0.001" value="0" />
+            <output class="voice-segment-curve-value">0.000</output>
+          </label>
+        </div>
+      </section>
+
+      <section class="voice-subpanel">
+        <div class="panel-head voice-subhead">
+          <div>
+            <p class="eyebrow">Step Pattern</p>
+            <h3>Amp Multislider</h3>
+          </div>
+          <p class="panel-note">16 Trigger-Staerken, synchron zur globalen Clock.</p>
+        </div>
+        <canvas class="editor-canvas compact-editor-canvas voice-amps-canvas" width="960" height="220"></canvas>
+      </section>
+    </div>
+  `;
+
+  return {
+    root,
+    title: root.querySelector(".voice-card-title"),
+    focusButton: root.querySelector(".voice-focus-button"),
+    randomButton: root.querySelector(".voice-random-button"),
+    muteButton: root.querySelector(".voice-mute-button"),
+    removeButton: root.querySelector(".voice-remove-button"),
+    presetSelect: root.querySelector(".voice-preset-select"),
+    stateLine: root.querySelector(".voice-state-line"),
+    scalarControls: root.querySelector(".voice-scalar-controls"),
+    clickCanvas: root.querySelector(".voice-click-canvas"),
+    envelopeCanvas: root.querySelector(".voice-envelope-canvas"),
+    ampsCanvas: root.querySelector(".voice-amps-canvas"),
+    addPointButton: root.querySelector(".voice-add-point-button"),
+    removePointButton: root.querySelector(".voice-remove-point-button"),
+    segmentCurve: root.querySelector(".voice-segment-curve"),
+    segmentCurveValue: root.querySelector(".voice-segment-curve-value"),
+    controlInputs: new Map(),
+    controlOutputs: new Map(),
+    clickSlider: null,
+    ampsSlider: null,
+    envelopeEditor: null,
+  };
+}
+
+function initializeVoiceCard(view, voiceId, index) {
+  populateVoicePresetSelect(view.presetSelect);
+  buildVoiceScalarControls(view, voiceId);
+
+  view.clickSlider = new MultiSlider({
+    canvas: view.clickCanvas,
+    values: getVoiceById(voiceId).clickShape,
+    fill: "#c57b57",
+    onChange: (values) => {
+      const voice = getVoiceById(voiceId);
+      if (!voice) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice.clickShape = values;
+      syncAll();
+    },
+  });
+
+  view.ampsSlider = new MultiSlider({
+    canvas: view.ampsCanvas,
+    values: getVoiceById(voiceId).amps,
+    fill: "#6ab1c7",
+    onChange: (values) => {
+      const voice = getVoiceById(voiceId);
+      if (!voice) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice.amps = values;
+      syncAll();
+    },
+  });
+
+  view.envelopeEditor = new EnvelopeEditor({
+    canvas: view.envelopeCanvas,
+    points: getVoiceById(voiceId).noiseEnvelope.points,
+    onChange: (points) => {
+      const voice = getVoiceById(voiceId);
+      if (!voice) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice.noiseEnvelope.points = points;
+      updateVoiceCurveControl(view);
+      syncAll();
+    },
+    onSelectionChange: () => {
+      updateVoiceCurveControl(view);
+    },
+  });
+
+  view.root.addEventListener("click", () => {
+    setActiveVoice(voiceId);
+  });
+
+  view.focusButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setActiveVoice(voiceId);
+  });
+
+  view.randomButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    randomizeVoice(voiceId);
+  });
+
+  view.muteButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const voice = getVoiceById(voiceId);
+
+    if (!voice) {
+      return;
+    }
+
+    voice.muted = !voice.muted;
+    refreshVoiceView(view);
+    syncAll();
+    setStatus(`Voice ${index + 1} ${voice.muted ? "stumm" : "aktiv"}.`);
+  });
+
+  if (view.removeButton) {
+    view.removeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      removeVoice(voiceId);
+    });
+  }
+
+  view.presetSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    replaceVoiceWithPreset(voiceId, Number(view.presetSelect.value));
+  });
+
+  view.addPointButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setActiveVoice(voiceId, { syncAnalysis: false });
+    view.envelopeEditor.addPoint();
+    const voice = getVoiceById(voiceId);
+    voice.noiseEnvelope.points = view.envelopeEditor.points.map((point) => ({ ...point }));
+    updateVoiceCurveControl(view);
+    syncAll();
+  });
+
+  view.removePointButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setActiveVoice(voiceId, { syncAnalysis: false });
+    view.envelopeEditor.removePoint();
+    const voice = getVoiceById(voiceId);
+    voice.noiseEnvelope.points = view.envelopeEditor.points.map((point) => ({ ...point }));
+    updateVoiceCurveControl(view);
+    syncAll();
+  });
+
+  view.segmentCurve.addEventListener("input", (event) => {
+    event.stopPropagation();
+    setActiveVoice(voiceId, { syncAnalysis: false });
+    const value = Number(view.segmentCurve.value);
+    view.envelopeEditor.setCurve(value);
+    const voice = getVoiceById(voiceId);
+    voice.noiseEnvelope.points = view.envelopeEditor.points.map((point) => ({ ...point }));
+    updateVoiceCurveControl(view);
+    syncAll();
+  });
+
+  updateVoiceCurveControl(view);
+}
+
+function destroyVoiceView(view) {
+  view.clickSlider?.destroy();
+  view.ampsSlider?.destroy();
+  view.envelopeEditor?.destroy();
+}
+
+function populateVoicePresetSelect(select) {
+  select.textContent = "";
+
   presets.forEach((preset) => {
     const option = document.createElement("option");
     option.value = String(preset.id);
     option.textContent = preset.name;
-    elements.presetSelect.append(option);
+    select.append(option);
   });
-
-  elements.presetSelect.value = String(state.id);
 }
 
-function buildScalarControls() {
-  scalarDefinitions.forEach((definition) => {
+function buildVoiceScalarControls(view, voiceId) {
+  voiceScalarDefinitions.forEach((definition) => {
     const control = document.createElement("label");
     control.className = "control";
 
@@ -103,155 +434,186 @@ function buildScalarControls() {
     valueRow.className = "value-row";
 
     const output = document.createElement("output");
-    controlOutputs.set(definition.key, output);
+    view.controlOutputs.set(definition.key, output);
 
     const input = document.createElement("input");
     input.type = "range";
     input.min = String(definition.transform === "log" ? 0 : definition.min);
     input.max = String(definition.transform === "log" ? 1 : definition.max);
     input.step = String(definition.transform === "log" ? 0.0001 : definition.step);
-    input.value = String(toSliderValue(definition, state[definition.key]));
 
     input.addEventListener("input", () => {
-      state[definition.key] = fromSliderValue(definition, Number(input.value));
-      output.textContent = formatValue(definition.key, state[definition.key]);
+      const voice = getVoiceById(voiceId);
+
+      if (!voice) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice[definition.key] = fromSliderValue(definition, Number(input.value));
+      output.textContent = formatValue(definition.key, voice[definition.key]);
       syncAll();
     });
 
-    controlInputs.set(definition.key, input);
+    view.controlInputs.set(definition.key, input);
     valueRow.append(output);
     control.append(title, valueRow, input);
-    elements.scalarControls.append(control);
-  });
-
-  refreshScalarControls();
-}
-
-function buildEditors() {
-  clickSlider = new MultiSlider({
-    canvas: elements.clickShapeCanvas,
-    values: state.clickShape,
-    fill: "#c57b57",
-    onChange: (values) => {
-      state.clickShape = values;
-      syncAll();
-    },
-  });
-
-  ampsSlider = new MultiSlider({
-    canvas: elements.ampsCanvas,
-    values: state.amps,
-    fill: "#6ab1c7",
-    onChange: (values) => {
-      state.amps = values;
-      syncAll();
-    },
-  });
-
-  envelopeEditor = new EnvelopeEditor({
-    canvas: elements.noiseEnvelopeCanvas,
-    points: state.noiseEnvelope.points,
-    onChange: (points) => {
-      state.noiseEnvelope.points = points;
-      updateCurveControl();
-      syncAll();
-    },
-    onSelectionChange: () => {
-      updateCurveControl();
-    },
-  });
-
-  updateCurveControl();
-}
-
-function wireActions() {
-  elements.presetSelect.addEventListener("change", () => {
-    const preset = presets.find((entry) => entry.id === Number(elements.presetSelect.value));
-
-    if (!preset) {
-      return;
-    }
-
-    state = cloneState(preset);
-    refreshEditors();
-    refreshScalarControls();
-    syncAll({ resetTransport: true });
-    setStatus(`${preset.name} geladen.`);
-  });
-
-  elements.startButton.addEventListener("click", async () => {
-    state.running = !state.running;
-
-    if (state.running) {
-      await engine.start(state);
-      setStatus("Audio läuft. Transport aktiv.");
-      elements.startButton.textContent = "Audio stoppen";
-    } else {
-      engine.sync(state, { resetTransport: false });
-      setStatus("Transport gestoppt. Resonanzen klingen weiter aus.");
-      elements.startButton.textContent = "Audio starten";
-    }
-  });
-
-  elements.triggerButton.addEventListener("click", async () => {
-    await engine.ensureReady();
-    await engine.context.resume();
-    engine.sync(state);
-    engine.trigger();
-    setStatus("Einzelschlag ausgelöst.");
-  });
-
-  elements.randomButton.addEventListener("click", () => {
-    randomizeVisibleParameters();
-  });
-
-  elements.addPointButton.addEventListener("click", () => {
-    envelopeEditor.addPoint();
-    state.noiseEnvelope.points = envelopeEditor.points.map((point) => ({ ...point }));
-    updateCurveControl();
-    syncAll();
-  });
-
-  elements.removePointButton.addEventListener("click", () => {
-    envelopeEditor.removePoint();
-    state.noiseEnvelope.points = envelopeEditor.points.map((point) => ({ ...point }));
-    updateCurveControl();
-    syncAll();
-  });
-
-  elements.segmentCurve.addEventListener("input", () => {
-    const value = Number(elements.segmentCurve.value);
-    envelopeEditor.setCurve(value);
-    state.noiseEnvelope.points = envelopeEditor.points.map((point) => ({ ...point }));
-    updateCurveControl();
-    syncAll();
+    view.scalarControls.append(control);
   });
 }
 
-function refreshEditors() {
-  clickSlider.setValues(state.clickShape);
-  ampsSlider.setValues(state.amps);
-  envelopeEditor.setPoints(state.noiseEnvelope.points);
-  updateCurveControl();
-  elements.presetSelect.value = String(state.id);
-  elements.startButton.textContent = state.running ? "Audio stoppen" : "Audio starten";
+function refreshVoiceView(view) {
+  const voiceId = Number(view.root.dataset.voiceId);
+  const voice = getVoiceById(voiceId);
+
+  if (!voice) {
+    return;
+  }
+
+  view.title.textContent = voice.presetName;
+  view.presetSelect.value = String(voice.presetId);
+  view.stateLine.textContent = voice.muted
+    ? "Muted. Clock bleibt synchron, Output ist still."
+    : "Eigene Parameter, gemeinsames BPM.";
+  view.muteButton.textContent = voice.muted ? "Unmute" : "Mute";
+
+  voiceScalarDefinitions.forEach((definition) => {
+    const input = view.controlInputs.get(definition.key);
+    const output = view.controlOutputs.get(definition.key);
+    input.value = String(toSliderValue(definition, voice[definition.key]));
+    output.textContent = formatValue(definition.key, voice[definition.key]);
+  });
+
+  view.clickSlider?.setValues(voice.clickShape);
+  view.ampsSlider?.setValues(voice.amps);
+  view.envelopeEditor?.setPoints(voice.noiseEnvelope.points);
+  updateVoiceCurveControl(view);
 }
 
-function refreshScalarControls() {
-  scalarDefinitions.forEach((definition) => {
-    const input = controlInputs.get(definition.key);
-    input.value = String(toSliderValue(definition, state[definition.key]));
-    controlOutputs.get(definition.key).textContent = formatValue(definition.key, state[definition.key]);
+function updateVoiceCurveControl(view) {
+  const curve = view.envelopeEditor?.getSelectedCurve() ?? 0;
+  view.segmentCurve.value = String(curve);
+  view.segmentCurveValue.textContent = curve.toFixed(3);
+}
+
+function refreshActiveVoiceStyles() {
+  voiceViews.forEach((view, voiceId) => {
+    const isActive = appState.activeVoiceId === voiceId;
+    view.root.classList.toggle("is-active", isActive);
+    view.focusButton.textContent = isActive ? "Analyse aktiv" : "Analyse";
   });
+}
+
+function setActiveVoice(voiceId, options = {}) {
+  const { renderCards = false, syncAnalysis = true } = options;
+
+  if (!getVoiceById(voiceId)) {
+    return;
+  }
+
+  appState.activeVoiceId = voiceId;
+  refreshActiveVoiceStyles();
+
+  if (renderCards) {
+    renderVoiceCards();
+  }
+
+  if (syncAnalysis) {
+    renderActiveVoiceAnalysis(engine.lastModalDataByVoice);
+  }
+}
+
+function removeVoice(voiceId) {
+  if (appState.voices.length <= 1) {
+    return;
+  }
+
+  const removeIndex = getVoiceIndexById(voiceId);
+
+  if (removeIndex === -1) {
+    return;
+  }
+
+  appState.voices.splice(removeIndex, 1);
+
+  if (!getVoiceById(appState.activeVoiceId)) {
+    appState.activeVoiceId = appState.voices[Math.max(0, removeIndex - 1)].voiceId;
+  }
+
+  renderVoiceCards();
+  syncAll();
+  setStatus(`Voice entfernt. ${appState.voices.length} Voices aktiv.`);
+}
+
+function replaceVoiceWithPreset(voiceId, presetId) {
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const currentVoice = getVoiceById(voiceId);
+  const preset = presets.find((entry) => entry.id === presetId);
+
+  if (voiceIndex === -1 || !currentVoice || !preset) {
+    return;
+  }
+
+  appState.voices[voiceIndex] = createVoiceFromPreset(preset, {
+    voiceId,
+    muted: currentVoice.muted,
+  });
+
+  const view = voiceViews.get(voiceId);
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll();
+  setStatus(`${preset.name} auf Voice ${voiceIndex + 1} geladen.`);
+}
+
+function randomizeVoice(voiceId) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const view = voiceViews.get(voiceId);
+
+  if (!voice || voiceIndex === -1 || !view) {
+    return;
+  }
+
+  voiceScalarDefinitions.forEach((definition) => {
+    voice[definition.key] = randomizeScalarValue(definition);
+  });
+
+  voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
+  voice.amps = Array.from({ length: voice.amps.length }, () => Math.random());
+  voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
+
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll();
+  setStatus(`Voice ${voiceIndex + 1} randomisiert.`);
 }
 
 function syncAll(options = {}) {
-  const modalData = engine.sync(state, options);
+  const modalDataByVoice = engine.sync(appState, options);
+  renderActiveVoiceAnalysis(modalDataByVoice);
+  analyserBuffer = engine.analyser ? new Float32Array(engine.analyser.fftSize) : analyserBuffer;
+}
+
+function renderActiveVoiceAnalysis(modalDataByVoice = []) {
+  const activeVoice = getActiveVoice();
+  const activeVoiceIndex = activeVoice ? getVoiceIndexById(activeVoice.voiceId) : -1;
+  const modalData = activeVoiceIndex >= 0 ? modalDataByVoice[activeVoiceIndex] : null;
+
+  if (!activeVoice || !modalData) {
+    drawBars(elements.freqCanvas, [0], { color: "#f0b075", baseline: 0 });
+    drawBars(elements.weightCanvas, [0], { color: "#6ab1c7", baseline: 0, maxValue: 1 });
+    elements.analysisVoiceLabel.textContent = "Keine Voice gewaehlt";
+    elements.freqSummary.textContent = "Keine Daten";
+    elements.weightSummary.textContent = "Keine Daten";
+    return;
+  }
+
   drawBars(elements.freqCanvas, modalData.frequencies, { color: "#f0b075", baseline: 0 });
   drawBars(elements.weightCanvas, modalData.weights, { color: "#6ab1c7", baseline: 0, maxValue: 1 });
+  elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${activeVoice.presetName}`;
   elements.freqSummary.textContent = summarizeFrequencies(modalData.frequencies);
   elements.weightSummary.textContent = summarizeWeights(modalData.weights);
-  analyserBuffer = engine.analyser ? new Float32Array(engine.analyser.fftSize) : analyserBuffer;
 }
 
 function renderScopeLoop() {
@@ -278,36 +640,17 @@ function buildStepGrid() {
   }
 }
 
-function updateStepGrid(activeIndex, amplitude) {
+function updateStepGrid(activeIndex, amplitudes = []) {
+  const peakAmplitude = amplitudes.length ? Math.max(...amplitudes) : 0;
+
   [...elements.stepGrid.children].forEach((cell, index) => {
     cell.classList.toggle("is-active", index === activeIndex);
-    cell.classList.toggle("is-muted", amplitude <= 0.001 && index === activeIndex);
+    cell.classList.toggle("is-muted", peakAmplitude <= 0.001 && index === activeIndex);
   });
-}
-
-function updateCurveControl() {
-  const curve = envelopeEditor.getSelectedCurve();
-  elements.segmentCurve.value = String(curve);
-  elements.segmentCurveValue.textContent = curve.toFixed(3);
 }
 
 function setStatus(message) {
   elements.statusLine.textContent = message;
-}
-
-function randomizeVisibleParameters() {
-  scalarDefinitions.forEach((definition) => {
-    state[definition.key] = randomizeScalarValue(definition);
-  });
-
-  state.clickShape = Array.from({ length: state.clickShape.length }, () => Math.random());
-  state.amps = Array.from({ length: state.amps.length }, () => Math.random());
-  state.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
-
-  refreshScalarControls();
-  refreshEditors();
-  syncAll();
-  setStatus("Sichtbare Parameter randomisiert.");
 }
 
 function drawBars(canvas, values, { color, baseline = 0, maxValue = null }) {
@@ -368,6 +711,7 @@ function drawScope(canvas, values) {
   for (let index = 0; index < values.length; index += 1) {
     const x = (index / (values.length - 1)) * width;
     const y = height / 2 - values[index] * (height * 0.36);
+
     if (index === 0) {
       context.moveTo(x, y);
     } else {
