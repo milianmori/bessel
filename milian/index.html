@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ersatz Bessel JS</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">Philip Meyer Patcher → Browser Engine</p>
+          <h1>Ersatz Bessel JS</h1>
+          <p class="lede">
+            Web-basierte Echtzeit-Übersetzung des Max-Patchers mit 16 Bessel-Moden,
+            Click- und Noise-Anregung, Step-Amp-Sequencer und Live-Visualisierung.
+          </p>
+        </div>
+
+        <div class="transport-cluster">
+          <label class="control compact">
+            <span>Preset</span>
+            <select id="preset-select"></select>
+          </label>
+
+          <div class="button-row">
+            <button id="start-button" type="button">Audio starten</button>
+            <button id="trigger-button" type="button" class="ghost">Einzelschlag</button>
+          </div>
+
+          <div class="step-grid" id="step-grid" aria-label="Step-Sequencer Status"></div>
+          <p class="status-line" id="status-line">Audio noch nicht initialisiert.</p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Makro</p>
+              <h2>Instrument</h2>
+            </div>
+          </div>
+          <div class="controls-grid" id="scalar-controls"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Analyse</p>
+              <h2>Moden und Output</h2>
+            </div>
+          </div>
+
+          <div class="viz-grid">
+            <article class="viz-card">
+              <div class="viz-meta">
+                <span>Freqs</span>
+                <span id="freq-summary"></span>
+              </div>
+              <canvas id="freq-canvas" width="640" height="240"></canvas>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-meta">
+                <span>Weights</span>
+                <span id="weight-summary"></span>
+              </div>
+              <canvas id="weight-canvas" width="640" height="240"></canvas>
+            </article>
+
+            <article class="viz-card wide">
+              <div class="viz-meta">
+                <span>Live Scope</span>
+                <span id="scope-summary"></span>
+              </div>
+              <canvas id="scope-canvas" width="1280" height="240"></canvas>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Click Buffer</p>
+              <h2>Click Shape</h2>
+            </div>
+            <p class="panel-note">64-Sample-Multislider wie im Max-Patcher.</p>
+          </div>
+          <canvas id="click-shape-canvas" class="editor-canvas" width="960" height="220"></canvas>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Noise Envelope</p>
+              <h2>nz_env Function</h2>
+            </div>
+            <div class="button-row">
+              <button id="add-point-button" type="button" class="ghost">Punkt addieren</button>
+              <button id="remove-point-button" type="button" class="ghost">Punkt entfernen</button>
+            </div>
+          </div>
+
+          <canvas id="noise-envelope-canvas" class="editor-canvas" width="960" height="280"></canvas>
+
+          <div class="controls-grid compact-grid">
+            <label class="control">
+              <span>Segment Curve</span>
+              <input id="segment-curve" type="range" min="-1" max="1" step="0.001" value="0" />
+              <output id="segment-curve-value">0.000</output>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Step Pattern</p>
+              <h2>Amp Multislider</h2>
+            </div>
+            <p class="panel-note">16 Trigger-Stärken, gespiegelt aus `stash~` + `what~`.</p>
+          </div>
+          <canvas id="amps-canvas" class="editor-canvas" width="960" height="220"></canvas>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
