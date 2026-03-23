@@ -18,10 +18,10 @@ function set_samplerate(v) {
     update();
 }
 
-var rprime = 0.3;
+var rprime = 0.5;
 declareattribute("rprime", {
     type: "float",
-    default: 0.3,
+    default: 0.5,
     min: 0,
     max: 1,
     setter: "set_rprime"
@@ -32,12 +32,12 @@ function set_rprime(v) {
     update();
 }
 
-var tuning = 220.0;
+var tuning = 440.0;
 declareattribute("tuning", {
     type: "float",
-    default: 220.0,
-    min: 0,
-    max: 10000,
+    default: 440.0,
+    min: 20,
+    max: 12000,
     setter: "set_tuning"
 });
 
@@ -46,12 +46,12 @@ function set_tuning(v) {
     update();
 }
 
-var size = 0.0;
+var size = 0.5 * Math.PI * 2;
 declareattribute("size", {
     type: "float",
-    default: 0.0,
-    min: 0.,
-    max: 5.,
+    default: 0.5,
+    min: 0.05,
+    max: 1.,
     setter: "set_size"
 });
 
@@ -60,10 +60,10 @@ function set_size(v) {
     update();
 }
 
-var damping = 0.0;
+var damping = 0.5;
 declareattribute("damping", {
     type: "float",
-    default: 0.0,
+    default: 0.5,
     min: 0,
     max: 1,
     setter: "set_damping"
@@ -74,10 +74,10 @@ function set_damping(v) {
     update();
 }
 
-var overtones = 0.;
+var overtones = 0.52;
 declareattribute("overtones", {
     type: "float",
-    default: 0,
+    default: 0.52,
     min: 0,
     max: 1.,
     setter: "set_overtones"
