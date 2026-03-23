@@ -71,6 +71,7 @@ function buildProcessorConfig(state, modalDataByVoice, options) {
     running: state.running,
     tempo: state.tempo,
     resetTransport: Boolean(options.resetTransport),
+    resetVoiceIds: Array.isArray(options.resetVoiceIds) ? [...options.resetVoiceIds] : [],
     voices: state.voices.map((voice, index) => {
       const modalData = modalDataByVoice[index];
 

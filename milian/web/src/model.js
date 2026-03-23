@@ -4,6 +4,7 @@ const ROOTS = [
   [5.1356, 8.4172, 11.6198, 14.7959],
   [6.3802, 9.761, 13.0152, 16.2235],
 ];
+const MAX_MODAL_FREQUENCY_FACTOR = 8;
 
 const DEFAULT_NOISE_ENV = {
   domainMs: 1000,
@@ -150,7 +151,7 @@ export function computeModalData(state, sampleRate = 44100) {
     alphas.forEach((alpha) => {
       const rawWeight = besselj(order, alpha * state.hitPosition);
       const weight = scale(rawWeight, 0, 1, state.overtones, 1, state.damping);
-      const frequency = clamp(alpha * state.tuning / sizeRadians, 20, sampleRate / 4);
+      const frequency = clamp(alpha * state.tuning / sizeRadians, 20, sampleRate / MAX_MODAL_FREQUENCY_FACTOR);
 
       frequencies.push(frequency);
       weights.push(weight);

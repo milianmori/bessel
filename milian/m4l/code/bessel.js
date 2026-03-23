@@ -1,5 +1,7 @@
 autowatch = 1;
 
+const MAX_MODAL_FREQUENCY_FACTOR = 8;
+
 //Internal variables
 let weights_buf = new Buffer('weights');
 let freqs_buf = new Buffer('freqs');
@@ -184,7 +186,7 @@ function get_frequencies() {
         all_freqs = all_freqs.concat(alphas);
     }
 
-    all_freqs = all_freqs.map(f => Math.max(20, Math.min(samplerate / 4, f * tuning / Math.max(size, 0.00001))));
+    all_freqs = all_freqs.map(f => Math.max(20, Math.min(samplerate / MAX_MODAL_FREQUENCY_FACTOR, f * tuning / Math.max(size, 0.00001))));
 
 
     freqs_buf.poke(1, 0, all_freqs);

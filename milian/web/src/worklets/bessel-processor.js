@@ -29,7 +29,7 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
     }
 
     if (Array.isArray(config.voices)) {
-      this.syncVoices(config.voices);
+      this.syncVoices(config.voices, config.resetVoiceIds);
     }
 
     if (config.resetTransport) {
@@ -39,8 +39,13 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
     }
   }
 
-  syncVoices(voiceConfigs) {
+  syncVoices(voiceConfigs, resetVoiceIds = []) {
     const existingById = new Map(this.voices.map((voice) => [voice.voiceId, voice]));
+    const resetVoiceIdSet = new Set(
+      Array.isArray(resetVoiceIds)
+        ? resetVoiceIds.map((voiceId) => Number(voiceId)).filter((voiceId) => Number.isFinite(voiceId))
+        : [],
+    );
 
     this.voices = voiceConfigs.map((config) => {
       const voice = existingById.get(config.voiceId) ?? createVoiceRuntime(config);
@@ -49,6 +54,10 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
       applyVoiceConfig(voice, config);
 
       if (!wasMuted && voice.muted) {
+        resetVoiceState(voice, true);
+      }
+
+      if (resetVoiceIdSet.has(voice.voiceId)) {
         resetVoiceState(voice, true);
       }
 
@@ -107,6 +116,9 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
     });
   }
 }
+
+const MAX_MODAL_FREQUENCY_FACTOR = 8;
+const RUNAWAY_STATE_LIMIT = 64;
 
 function createVoiceRuntime(config) {
   const frequencies = Array.isArray(config.frequencies) ? config.frequencies : new Array(16).fill(220);
@@ -258,7 +270,11 @@ function renderVoiceFrame(voice) {
   for (let modeIndex = 0; modeIndex < voice.modeStates.length; modeIndex += 1) {
     const modeState = voice.modeStates[modeIndex];
     const baseFrequency = voice.frequencies[modeIndex] || 20;
-    const transposedFrequency = clamp(baseFrequency * 2 ** (transpose / 12), 20, sampleRate / 4);
+    const transposedFrequency = clamp(
+      baseFrequency * 2 ** (transpose / 12),
+      20,
+      sampleRate / MAX_MODAL_FREQUENCY_FACTOR,
+    );
     const f = 2 * Math.sin((Math.PI * transposedFrequency) / sampleRate);
     const q = voice.qCoefficients[modeIndex] || 0.03;
 
@@ -362,7 +378,7 @@ function curveTransfer(value, curve) {
 }
 
 function sanitize(value) {
-  if (!Number.isFinite(value) || Math.abs(value) < 1e-12) {
+  if (!Number.isFinite(value) || Math.abs(value) < 1e-12 || Math.abs(value) > RUNAWAY_STATE_LIMIT) {
     return 0;
   }
 

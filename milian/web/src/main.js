@@ -732,7 +732,7 @@ function replaceVoiceWithPreset(voiceId, presetId) {
   const view = voiceViews.get(voiceId);
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
-  syncAll();
+  syncAll({ resetVoiceIds: [voiceId] });
   setStatus(`${preset.name} auf Voice ${voiceIndex + 1} geladen.`);
 }
 
@@ -755,7 +755,7 @@ function randomizeVoice(voiceId) {
 
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
-  syncAll();
+  syncAll({ resetVoiceIds: [voiceId] });
   setStatus(`Voice ${voiceIndex + 1} randomisiert.`);
 }
 
