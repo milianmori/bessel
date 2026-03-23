@@ -1,7 +1,5 @@
 autowatch = 1;
 
-const MAX_MODAL_FREQUENCY_FACTOR = 8;
-
 //Internal variables
 let weights_buf = new Buffer('weights');
 let freqs_buf = new Buffer('freqs');
@@ -20,10 +18,10 @@ function set_samplerate(v) {
     update();
 }
 
-var rprime = 0.5;
+var rprime = 0.3;
 declareattribute("rprime", {
     type: "float",
-    default: 0.5,
+    default: 0.3,
     min: 0,
     max: 1,
     setter: "set_rprime"
@@ -34,12 +32,12 @@ function set_rprime(v) {
     update();
 }
 
-var tuning = 440.0;
+var tuning = 220.0;
 declareattribute("tuning", {
     type: "float",
-    default: 440.0,
-    min: 20,
-    max: 12000,
+    default: 220.0,
+    min: 0,
+    max: 10000,
     setter: "set_tuning"
 });
 
@@ -48,12 +46,12 @@ function set_tuning(v) {
     update();
 }
 
-var size = 0.5 * Math.PI * 2;
+var size = 0.0;
 declareattribute("size", {
     type: "float",
-    default: 0.5,
-    min: 0.05,
-    max: 1.,
+    default: 0.0,
+    min: 0.,
+    max: 5.,
     setter: "set_size"
 });
 
@@ -62,10 +60,10 @@ function set_size(v) {
     update();
 }
 
-var damping = 0.5;
+var damping = 0.0;
 declareattribute("damping", {
     type: "float",
-    default: 0.5,
+    default: 0.0,
     min: 0,
     max: 1,
     setter: "set_damping"
@@ -76,10 +74,10 @@ function set_damping(v) {
     update();
 }
 
-var overtones = 0.52;
+var overtones = 0.;
 declareattribute("overtones", {
     type: "float",
-    default: 0.52,
+    default: 0,
     min: 0,
     max: 1.,
     setter: "set_overtones"
@@ -186,7 +184,7 @@ function get_frequencies() {
         all_freqs = all_freqs.concat(alphas);
     }
 
-    all_freqs = all_freqs.map(f => Math.max(20, Math.min(samplerate / MAX_MODAL_FREQUENCY_FACTOR, f * tuning / Math.max(size, 0.00001))));
+    all_freqs = all_freqs.map(f => Math.max(20, Math.min(samplerate / 4, f * tuning / Math.max(size, 0.00001))));
 
 
     freqs_buf.poke(1, 0, all_freqs);
