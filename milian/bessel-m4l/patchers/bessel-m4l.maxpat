@@ -9,30 +9,30 @@
             "modernui": 1
         },
         "classnamespace": "box",
-        "rect": [ 34.0, 92.0, 1560.0, 916.0 ],
+        "rect": [ 34.0, 92.0, 1852.0, 916.0 ],
         "openinpresentation": 1,
         "integercoordinates": 1,
         "boxes": [
             {
                 "box": {
-                    "id": "obj-5",
-                    "maxclass": "message",
+                    "id": "obj-21",
+                    "maxclass": "newobj",
                     "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 341.0, 690.0, 35.0, 22.0 ],
-                    "text": "reset"
+                    "numoutlets": 2,
+                    "outlettype": [ "multichannelsignal", "multichannelsignal" ],
+                    "patching_rect": [ 1231.0, 948.0, 475.0, 22.0 ],
+                    "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf freqs @q_buf weights"
                 }
             },
             {
                 "box": {
-                    "id": "obj-3",
-                    "maxclass": "message",
+                    "id": "obj-34",
+                    "maxclass": "newobj",
                     "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "" ],
-                    "patching_rect": [ 337.0, 647.0, 42.0, 22.0 ],
-                    "text": "reload"
+                    "numoutlets": 2,
+                    "outlettype": [ "multichannelsignal", "multichannelsignal" ],
+                    "patching_rect": [ 954.0, 901.0, 468.0, 22.0 ],
+                    "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf freqs @q_buf weights"
                 }
             },
             {
@@ -1947,8 +1947,8 @@
                     "id": "obj-24",
                     "maxclass": "newobj",
                     "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "multichannelsignal" ],
+                    "numoutlets": 2,
+                    "outlettype": [ "multichannelsignal", "multichannelsignal" ],
                     "patching_rect": [ 787.0, 582.0, 475.0, 22.0 ],
                     "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf freqs @q_buf weights"
                 }
@@ -1958,9 +1958,9 @@
                     "id": "obj-2",
                     "maxclass": "newobj",
                     "numinlets": 2,
-                    "numoutlets": 1,
-                    "outlettype": [ "multichannelsignal" ],
-                    "patching_rect": [ 510.0, 535.0, 468.0, 22.0 ],
+                    "numoutlets": 2,
+                    "outlettype": [ "multichannelsignal", "multichannelsignal" ],
+                    "patching_rect": [ 510.0, 551.0, 468.0, 22.0 ],
                     "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf freqs @q_buf weights"
                 }
             },
@@ -3278,12 +3278,6 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-2", 0 ],
-                    "source": [ "obj-3", 0 ]
-                }
-            },
-            {
-                "patchline": {
                     "destination": [ "obj-304", 0 ],
                     "source": [ "obj-302", 0 ]
                 }
@@ -3616,12 +3610,6 @@
                     "destination": [ "obj-306", 0 ],
                     "order": 0,
                     "source": [ "obj-46", 0 ]
-                }
-            },
-            {
-                "patchline": {
-                    "destination": [ "obj-2", 0 ],
-                    "source": [ "obj-5", 0 ]
                 }
             },
             {
