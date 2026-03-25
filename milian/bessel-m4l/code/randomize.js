@@ -10,10 +10,6 @@ function randomize() {
     emitRandomVoice();
 }
 
-function randomize_amps() {
-    outlet(6, createAmpPattern(16, ampMode));
-}
-
 function amp_mode(modeIndex) {
     ampMode = clampMode(modeIndex);
 }
