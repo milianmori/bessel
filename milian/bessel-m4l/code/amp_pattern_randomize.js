@@ -1,60 +1,29 @@
 autowatch = 1;
-outlets = 13;
+inlets = 2;
+outlets = 1;
+
 var ampMode = 1;
+var PATTERN_LENGTH = 16;
 
 function bang() {
-    emitRandomVoice();
-}
-
-function randomize() {
-    emitRandomVoice();
-}
-
-function amp_mode(modeIndex) {
-    ampMode = clampMode(modeIndex);
-}
-
-function anything() {
-    if (messagename === "randomize") {
-        emitRandomVoice();
+    if (inlet !== 0) {
+        return;
     }
+
+    outlet(0, createAmpPattern(PATTERN_LENGTH, ampMode));
 }
 
-function emitRandomVoice() {
-    var thirdPointTime = randomInRange(0.12, 1.0, 0.001);
-    var secondPointTime = randomInRange(0.06, thirdPointTime - 0.06, 0.001);
-    var noiseEnv = [
-        1000.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0,
-        0.0,
-        secondPointTime * 1000.0,
-        randomInRange(0.0, 1.0, 0.001),
-        0,
-        randomInRange(0.0, 1.0, 0.001),
-        thirdPointTime * 1000.0,
-        0.0,
-        0,
-        randomInRange(0.0, 1.0, 0.001),
-        "curve"
-    ];
+function msg_int(value) {
+    if (inlet === 1) {
+        ampMode = clampMode(value);
+        return;
+    }
 
-    outlet(12, randomInRange(0.2, 1.4, 0.001));
-    outlet(11, randomInRange(0.0, 220.0, 0.1));
-    outlet(10, randomInRange(0.0, 24.0, 0.1));
-    outlet(9, randomInRange(0.0, 500.0, 1.0));
-    outlet(8, randomInRange(0.0, 1.0, 0.001));
-    outlet(7, noiseEnv);
-    outlet(6, createAmpPattern(16, ampMode));
-    outlet(5, createRandomArray(64));
-    outlet(4, randomInRange(0.0, 1.0, 0.001));
-    outlet(3, randomInRange(0.0, 1.0, 0.001));
-    outlet(2, randomInRange(0.0, 1.0, 0.001));
-    outlet(1, randomInRange(0.05, 1.0, 0.001));
-    outlet(0, randomLogValue(20.0, 12000.0));
+    outlet(0, createAmpPattern(PATTERN_LENGTH, clampMode(value)));
+}
+
+function amp_mode(value) {
+    ampMode = clampMode(value);
 }
 
 function createAmpPattern(length, modeIndex) {
@@ -68,7 +37,6 @@ function createAmpPattern(length, modeIndex) {
         case 4:
             return createStepPattern(length, 2, false);
         case 5:
-            return createAllPattern(length);
         default:
             return createAllPattern(length);
     }
@@ -76,8 +44,8 @@ function createAmpPattern(length, modeIndex) {
 
 function createStepPattern(length, interval, excludeLastStep) {
     var values = createZeroArray(length);
-    var step;
     var stepLimit = excludeLastStep ? length - 1 : length;
+    var step;
 
     for (step = 0; step < stepLimit; step += interval) {
         values[step] = randomVelocityForStep(step, false);
@@ -121,22 +89,6 @@ function randomVelocityForStep(stepIndex, allActive) {
     return randomVelocity(0.32, 0.82);
 }
 
-function createRandomArray(length) {
-    var values = [];
-
-    for (var index = 0; index < length; index++) {
-        values.push(Math.random());
-    }
-
-    return values;
-}
-
-function randomLogValue(min, max) {
-    var minLog = Math.log(min);
-    var maxLog = Math.log(max);
-    return Math.exp(minLog + Math.random() * (maxLog - minLog));
-}
-
 function clampMode(modeIndex) {
     return clamp(Math.round(modeIndex || 1), 1, 5);
 }
@@ -161,10 +113,6 @@ function randomVelocity(min, max) {
 
 function roundToStep(value, step) {
     return randomInRange(value, value, step);
-}
-
-function randomInt(min, max) {
-    return Math.floor(randomInRange(min, max + 1));
 }
 
 function createZeroArray(length) {
