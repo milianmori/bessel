@@ -1,8 +1,8 @@
 autowatch = 1;
 
-//Internal variables
-let weights_buf = new Buffer('weights');
-let freqs_buf = new Buffer('freqs');
+// Internal state is bound to per-instance buffer names passed from the patch.
+let weights_buf = null;
+let freqs_buf = null;
 
 let roots = {};
 
@@ -101,28 +101,26 @@ function set_roots_coll_name(v) {
     update();
 }
 
-var weights_buf_name = "weights";
+var weights_buf_name = "";
 declareattribute("weights_buf_name", {
     type: "symbol",
-    default: "weights",
+    default: "",
     setter: "set_weights_buf_name"
 });
 
 function set_weights_buf_name(v) {
     weights_buf_name = v;
-    weights_buf = new Buffer(weights_buf_name);
     update();
 }
 
-var freqs_buf_name = "freqs";   
+var freqs_buf_name = "";
 declareattribute("freqs_buf_name", {
     type: "symbol",
-    default: "freqs",
+    default: "",
     setter: "set_freqs_buf_name"
 });
 function set_freqs_buf_name(v) {
     freqs_buf_name = v;
-    freqs_buf = new Buffer(freqs_buf_name);
     update();
 }
 
@@ -132,6 +130,12 @@ function bang() {
 }
 
 function update() {
+    if (!weights_buf_name || !freqs_buf_name) {
+        return;
+    }
+
+    weights_buf = new Buffer(weights_buf_name);
+    freqs_buf = new Buffer(freqs_buf_name);
     get_weights();
     get_frequencies();  
 }

@@ -101,7 +101,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "multichannelsignal" ],
                     "patching_rect": [ 1339.0, 982.0, 475.0, 22.0 ],
-                    "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf freqs @q_buf weights"
+                    "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf #0-freqs @q_buf #0-weights"
                 }
             },
             {
@@ -112,7 +112,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "multichannelsignal" ],
                     "patching_rect": [ 1062.0, 935.0, 468.0, 22.0 ],
-                    "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf freqs @q_buf weights"
+                    "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf #0-freqs @q_buf #0-weights"
                 }
             },
             {
@@ -1377,7 +1377,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 687.0, 275.0, 45.0, 22.0 ],
-                    "text": "r amps"
+                    "text": "r #0-amps"
                 }
             },
             {
@@ -1773,7 +1773,7 @@
                                                     "numoutlets": 2,
                                                     "outlettype": [ "", "" ],
                                                     "patching_rect": [ 50.0, 172.0, 199.0, 22.0 ],
-                                                    "text": "wave click"
+                                                    "text": "wave click_buf"
                                                 }
                                             },
                                             {
@@ -1795,7 +1795,7 @@
                                                     "numoutlets": 2,
                                                     "outlettype": [ "", "" ],
                                                     "patching_rect": [ 170.0, 14.0, 66.0, 22.0 ],
-                                                    "text": "buffer click"
+                                                    "text": "buffer click_buf"
                                                 }
                                             },
                                             {
@@ -1899,7 +1899,7 @@
                                         }
                                     },
                                     "patching_rect": [ 50.0, 304.0, 81.0, 22.0 ],
-                                    "text": "gen~ @t click"
+                                    "text": "gen~ @t click @click_buf #0-click"
                                 }
                             },
                             {
@@ -2060,7 +2060,7 @@
                     "numinlets": 1,
                     "numoutlets": 0,
                     "patching_rect": [ 2167.0, 171.0, 47.0, 22.0 ],
-                    "text": "s amps"
+                    "text": "s #0-amps"
                 }
             },
             {
@@ -2196,7 +2196,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 531.0, 417.0, 71.0, 22.0 ],
-                    "text": "r noise_env"
+                    "text": "r #0-noise_env"
                 }
             },
             {
@@ -2206,7 +2206,7 @@
                     "numinlets": 1,
                     "numoutlets": 0,
                     "patching_rect": [ 1889.0, 197.0, 73.0, 22.0 ],
-                    "text": "s noise_env"
+                    "text": "s #0-noise_env"
                 }
             },
             {
@@ -2228,7 +2228,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "int" ],
                     "patching_rect": [ 1716.0, 169.0, 163.0, 22.0 ],
-                    "text": "array.tobuffer click @resize 1"
+                    "text": "array.tobuffer #0-click @resize 1"
                 }
             },
             {
@@ -2239,7 +2239,7 @@
                     "numoutlets": 2,
                     "outlettype": [ "float", "bang" ],
                     "patching_rect": [ 1716.0, 195.0, 140.0, 22.0 ],
-                    "text": "buffer~ click @samps 64"
+                    "text": "buffer~ #0-click @samps 64"
                 }
             },
             {
@@ -2445,7 +2445,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "multichannelsignal" ],
                     "patching_rect": [ 895.0, 616.0, 475.0, 22.0 ],
-                    "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf freqs @q_buf weights"
+                    "text": "mc.gen~ modal_resonator @chans 12 @chan_offs 4 @freqs_buf #0-freqs @q_buf #0-weights"
                 }
             },
             {
@@ -2456,7 +2456,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "multichannelsignal" ],
                     "patching_rect": [ 618.0, 585.0, 468.0, 22.0 ],
-                    "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf freqs @q_buf weights"
+                    "text": "mc.gen~ modal_resonator @chans 4 @chan_offs 0 @freqs_buf #0-freqs @q_buf #0-weights"
                 }
             },
             {
@@ -2572,7 +2572,7 @@
                     "numoutlets": 2,
                     "outlettype": [ "float", "bang" ],
                     "patching_rect": [ 134.0, 457.0, 164.0, 22.0 ],
-                    "text": "buffer~ freqs 1 1 @samps 16"
+                    "text": "buffer~ #0-freqs 1 1 @samps 16"
                 }
             },
             {
@@ -2583,7 +2583,7 @@
                     "numoutlets": 2,
                     "outlettype": [ "float", "bang" ],
                     "patching_rect": [ 302.0, 457.0, 178.0, 22.0 ],
-                    "text": "buffer~ weights 1 1 @samps 16"
+                    "text": "buffer~ #0-weights 1 1 @samps 16"
                 }
             },
             {
@@ -2998,7 +2998,7 @@
                     "saved_object_attributes": {
                         "parameter_enable": 0
                     },
-                    "text": "v8 bessel.js @weights_buf_name weights @freqs_buf_name freqs",
+                    "text": "v8 bessel.js @weights_buf_name #0-weights @freqs_buf_name #0-freqs",
                     "textfile": {
                         "filename": "bessel.js",
                         "flags": 0,
