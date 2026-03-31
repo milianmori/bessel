@@ -4,6 +4,7 @@ outlets = 1;
 
 var ampMode = 1;
 var legacyRhythm = 0;
+var ampPatternSource = 0;
 var PATTERN_LENGTH = 16;
 
 function bang() {
@@ -27,15 +28,23 @@ function amp_mode(value) {
     ampMode = clampMode(value);
 }
 
+function amp_pattern_source(sourceIndex) {
+    ampPatternSource = clampAmpPatternSource(sourceIndex);
+}
+
 function legacy_rhythm(value) {
     legacyRhythm = clampLegacyRhythm(value);
 }
 
 function createAmpPattern(length, modeIndex) {
-    if (legacyRhythm > 0) {
+    if (shouldUseLegacyRhythm()) {
         return createLegacyPattern(length, legacyRhythm);
     }
 
+    return createAmpModePattern(length, modeIndex);
+}
+
+function createAmpModePattern(length, modeIndex) {
     switch (clampMode(modeIndex)) {
         case 1:
             return createStepPattern(length, 6, false);
@@ -350,8 +359,16 @@ function clampMode(modeIndex) {
     return clamp(Math.round(modeIndex || 1), 1, 5);
 }
 
+function clampAmpPatternSource(sourceIndex) {
+    return clamp(Math.round(sourceIndex || 0), 0, 1);
+}
+
 function clampLegacyRhythm(rhythmIndex) {
     return clamp(Math.round(rhythmIndex || 0), 0, 10);
+}
+
+function shouldUseLegacyRhythm() {
+    return clampAmpPatternSource(ampPatternSource) === 0 && legacyRhythm > 0;
 }
 
 function randomInRange(min, max, step) {
