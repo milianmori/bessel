@@ -460,7 +460,7 @@
                     "numoutlets": 1,
                     "outlettype": [ "" ],
                     "patching_rect": [ 184.0, 135.0, 258.0, 22.0 ],
-                    "text": "param frequency @min 0. @max samplerate/4"
+                    "text": "param frequency @min 0. @max samplerate/8"
                 }
             },
             {

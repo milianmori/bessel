@@ -3359,6 +3359,17 @@
             },
             {
                 "box": {
+                    "id": "obj-510",
+                    "maxclass": "newobj",
+                    "numinlets": 1,
+                    "numoutlets": 1,
+                    "outlettype": [ "" ],
+                    "patching_rect": [ 247.0, -81.0, 54.0, 22.0 ],
+                    "text": "deferlow"
+                }
+            },
+            {
+                "box": {
                     "fontface": 1,
                     "fontsize": 12.0,
                     "id": "obj-403",
@@ -4546,8 +4557,14 @@
             },
             {
                 "patchline": {
-                    "destination": [ "obj-309", 0 ],
+                    "destination": [ "obj-510", 0 ],
                     "source": [ "obj-6", 1 ]
+                }
+            },
+            {
+                "patchline": {
+                    "destination": [ "obj-309", 0 ],
+                    "source": [ "obj-510", 0 ]
                 }
             },
             {

@@ -26,6 +26,7 @@ function anything() {
 }
 
 function emitRandomVoice() {
+    var denseAllMode = isDenseAllMode();
     var thirdPointTime = randomInRange(0.12, 1.0, 0.001);
     var secondPointTime = randomInRange(0.06, thirdPointTime - 0.06, 0.001);
     var noiseEnv = [
@@ -47,10 +48,10 @@ function emitRandomVoice() {
         "curve"
     ];
 
-    outlet(12, randomInRange(0.2, 1.4, 0.001));
-    outlet(11, randomInRange(0.0, 220.0, 0.1));
-    outlet(10, randomInRange(0.0, 24.0, 0.1));
-    outlet(9, randomInRange(0.0, 500.0, 1.0));
+    outlet(12, randomInRange(0.2, denseAllMode ? 0.72 : 1.4, 0.001));
+    outlet(11, randomInRange(0.0, denseAllMode ? 90.0 : 220.0, 0.1));
+    outlet(10, randomInRange(0.0, denseAllMode ? 10.0 : 24.0, 0.1));
+    outlet(9, randomInRange(0.0, denseAllMode ? 180.0 : 500.0, 1.0));
     outlet(8, randomInRange(0.0, 1.0, 0.001));
     outlet(7, noiseEnv);
     outlet(6, createAmpPattern(16, ampMode));
@@ -58,8 +59,8 @@ function emitRandomVoice() {
     outlet(4, randomInRange(0.0, 1.0, 0.001));
     outlet(3, randomInRange(0.0, 1.0, 0.001));
     outlet(2, randomInRange(0.0, 1.0, 0.001));
-    outlet(1, randomInRange(0.05, 1.0, 0.001));
-    outlet(0, randomLogValue(20.0, 12000.0));
+    outlet(1, randomInRange(denseAllMode ? 0.12 : 0.05, 1.0, 0.001));
+    outlet(0, randomLogValue(20.0, denseAllMode ? 6000.0 : 12000.0));
 }
 
 function createAmpPattern(length, modeIndex) {
@@ -108,19 +109,19 @@ function createAllPattern(length) {
 
 function randomVelocityForStep(stepIndex, allActive) {
     if (stepIndex === 0) {
-        return randomVelocity(0.76, 1.0);
+        return randomVelocity(allActive ? 0.52 : 0.76, allActive ? 0.82 : 1.0);
     }
 
     if (allActive) {
         if (stepIndex % 4 === 0) {
-            return randomVelocity(0.46, 0.86);
+            return randomVelocity(0.2, 0.46);
         }
 
         if (stepIndex % 2 === 0) {
-            return randomVelocity(0.24, 0.7);
+            return randomVelocity(0.1, 0.28);
         }
 
-        return randomVelocity(0.12, 0.54);
+        return randomVelocity(0.03, 0.16);
     }
 
     if (stepIndex % 4 === 0) {
@@ -400,6 +401,10 @@ function clampMode(modeIndex) {
 
 function clampLegacyRhythm(rhythmIndex) {
     return clamp(Math.round(rhythmIndex || 0), 0, 10);
+}
+
+function isDenseAllMode() {
+    return legacyRhythm === 0 && clampMode(ampMode) === 5;
 }
 
 function randomInRange(min, max, step) {

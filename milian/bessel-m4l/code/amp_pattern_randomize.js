@@ -76,19 +76,19 @@ function createAllPattern(length) {
 
 function randomVelocityForStep(stepIndex, allActive) {
     if (stepIndex === 0) {
-        return randomVelocity(0.76, 1.0);
+        return randomVelocity(allActive ? 0.52 : 0.76, allActive ? 0.82 : 1.0);
     }
 
     if (allActive) {
         if (stepIndex % 4 === 0) {
-            return randomVelocity(0.46, 0.86);
+            return randomVelocity(0.2, 0.46);
         }
 
         if (stepIndex % 2 === 0) {
-            return randomVelocity(0.24, 0.7);
+            return randomVelocity(0.1, 0.28);
         }
 
-        return randomVelocity(0.12, 0.54);
+        return randomVelocity(0.03, 0.16);
     }
 
     if (stepIndex % 4 === 0) {
