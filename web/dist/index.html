@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ersatz Bessel JS</title>
+    <script type="module" crossorigin src="./assets/index-GZaShh0Z.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Bp4KgCCP.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero panel">
+        <div>
+          <p class="eyebrow">Layered Instrument</p>
+          <h1>Ersatz Bessel JS</h1>
+          <p class="lede">
+            Mehrere Voices teilen sich einen Transport. Jede Voice hat eigene Exciter-, Modal-
+            und Envelope-Settings, nur das BPM bleibt global.
+          </p>
+        </div>
+
+        <div class="transport-cluster">
+          <label class="control">
+            <span>Tempo</span>
+            <div class="value-row">
+              <output id="tempo-output">118 BPM</output>
+            </div>
+            <input id="tempo-input" type="range" min="48" max="192" step="1" value="118" />
+          </label>
+
+          <div class="button-row">
+            <button id="start-button" type="button">Audio starten</button>
+            <button id="trigger-button" type="button" class="ghost">Einzelschlag</button>
+            <button id="add-voice-button" type="button" class="ghost">+ Voice</button>
+          </div>
+
+          <div class="step-grid" id="step-grid" aria-label="Gemeinsamer Step-Sequencer Status"></div>
+          <p class="status-line" id="status-line">Audio noch nicht initialisiert.</p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel voices-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Voices</p>
+              <h2>Layer Stack</h2>
+            </div>
+            <p class="panel-note">Mit `+ Voice` wird die aktive Voice geklont.</p>
+          </div>
+
+          <div class="voice-list" id="voice-list"></div>
+        </section>
+
+        <section class="panel analysis-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Analyse</p>
+              <h2>Fokussierte Voice</h2>
+            </div>
+            <p class="panel-note" id="analysis-voice-label">Keine Voice gewaehlt</p>
+          </div>
+
+          <div class="viz-grid">
+            <article class="viz-card">
+              <div class="viz-meta">
+                <span>Freqs</span>
+                <span id="freq-summary"></span>
+              </div>
+              <canvas id="freq-canvas" class="viz-canvas" width="640" height="240"></canvas>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-meta">
+                <span>Weights</span>
+                <span id="weight-summary"></span>
+              </div>
+              <canvas id="weight-canvas" class="viz-canvas" width="640" height="240"></canvas>
+            </article>
+
+            <article class="viz-card wide">
+              <div class="viz-meta">
+                <span>Live Scope</span>
+                <span id="scope-summary"></span>
+              </div>
+              <canvas id="scope-canvas" class="viz-canvas viz-canvas-wide" width="1280" height="240"></canvas>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+  </body>
+</html>
