@@ -17,6 +17,20 @@ Danach im Browser oeffnen:
 http://localhost:5173
 ```
 
+Falls `localhost` bei dir nicht reagiert, probier stattdessen:
+
+```text
+http://127.0.0.1:5173
+```
+
+Wichtig: Browser-Presets und Session-Daten liegen pro Origin getrennt. Wenn deine alten Presets unter `localhost` gespeichert wurden, erscheinen sie nicht automatisch unter `127.0.0.1`.
+
+Falls du den Dev-Server bewusst im Netzwerk freigeben willst, kannst du ihn einmalig so starten:
+
+```bash
+npm run dev -- --host 0.0.0.0
+```
+
 ## Stand
 
 - Mehrere layerbare Voices mit gemeinsamem BPM
