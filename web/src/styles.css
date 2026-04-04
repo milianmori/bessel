@@ -101,6 +101,18 @@ button.danger {
     var(--panel-strong);
 }
 
+.hero-copy {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.hero-titlebar {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: start;
+}
+
 .eyebrow {
   margin: 0 0 0.35rem;
   font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
@@ -224,6 +236,11 @@ h3 {
 
 .control input[type="range"] {
   width: 100%;
+}
+
+.control input[type="range"]:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 
 .control input[type="text"] {
@@ -445,6 +462,7 @@ canvas {
     grid-template-columns: 1fr;
   }
 
+  .hero-titlebar,
   .voice-card-head,
   .panel-head {
     flex-direction: column;

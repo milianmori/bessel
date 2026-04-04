@@ -19,6 +19,7 @@ import {
 const engine = new BesselAudioEngine();
 
 const elements = {
+  randomTempoButton: document.querySelector("#random-tempo-button"),
   startButton: document.querySelector("#start-button"),
   triggerButton: document.querySelector("#trigger-button"),
   addVoiceButton: document.querySelector("#add-voice-button"),
@@ -67,7 +68,7 @@ bootstrap().catch((error) => {
 async function bootstrap() {
   buildStepGrid();
   factoryPresets = await loadPresets();
-  userPresets = loadUserPresets();
+  userPresets = await loadUserPresets();
   rebuildPresetCatalog();
 
   const { state, restoredSession } = buildInitialAppState();
@@ -183,6 +184,10 @@ function getActiveVoice() {
 }
 
 function wireGlobalActions() {
+  elements.randomTempoButton.addEventListener("click", () => {
+    randomizeTempo();
+  });
+
   elements.startButton.addEventListener("click", async () => {
     appState.running = !appState.running;
 
@@ -227,6 +232,13 @@ function refreshTransportControls() {
   elements.tempoInput.value = String(toSliderValue(tempoDefinition, appState.tempo));
   elements.tempoOutput.textContent = formatValue("tempo", appState.tempo);
   elements.startButton.textContent = appState.running ? "Audio stoppen" : "Audio starten";
+}
+
+function randomizeTempo() {
+  appState.tempo = randomizeScalarValue(tempoDefinition);
+  refreshTransportControls();
+  syncAll();
+  setStatus(`BPM randomisiert: ${Math.round(appState.tempo)}.`);
 }
 
 function renderVoiceCards() {
@@ -475,22 +487,22 @@ function initializeVoiceCard(view, voiceId, index) {
     replaceVoiceWithPreset(voiceId, presetId);
   });
 
-  view.savePresetButton.addEventListener("click", (event) => {
+  view.savePresetButton.addEventListener("click", async (event) => {
     event.stopPropagation();
-    saveVoiceAsUserPreset(voiceId);
+    await saveVoiceAsUserPreset(voiceId);
   });
 
-  view.updatePresetButton.addEventListener("click", (event) => {
+  view.updatePresetButton.addEventListener("click", async (event) => {
     event.stopPropagation();
-    updateUserPresetFromVoice(voiceId);
+    await updateUserPresetFromVoice(voiceId);
   });
 
-  view.deletePresetButton.addEventListener("click", (event) => {
+  view.deletePresetButton.addEventListener("click", async (event) => {
     event.stopPropagation();
-    deleteUserPresetFromVoice(voiceId);
+    await deleteUserPresetFromVoice(voiceId);
   });
 
-  view.presetNameInput.addEventListener("keydown", (event) => {
+  view.presetNameInput.addEventListener("keydown", async (event) => {
     if (event.key !== "Enter") {
       return;
     }
@@ -504,11 +516,11 @@ function initializeVoiceCard(view, voiceId, index) {
     }
 
     if (voice.presetSource === "user" && findUserPresetById(voice.presetId)) {
-      updateUserPresetFromVoice(voiceId);
+      await updateUserPresetFromVoice(voiceId);
       return;
     }
 
-    saveVoiceAsUserPreset(voiceId);
+    await saveVoiceAsUserPreset(voiceId);
   });
 
   view.addPointButton.addEventListener("click", (event) => {
@@ -745,9 +757,11 @@ function randomizeVoice(voiceId) {
     return;
   }
 
-  voiceScalarDefinitions.forEach((definition) => {
-    voice[definition.key] = randomizeScalarValue(definition);
-  });
+  voiceScalarDefinitions
+    .filter((definition) => definition.key !== "masterGain")
+    .forEach((definition) => {
+      voice[definition.key] = randomizeScalarValue(definition);
+    });
 
   voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
   voice.amps = Array.from({ length: voice.amps.length }, () => Math.random());
@@ -759,7 +773,7 @@ function randomizeVoice(voiceId) {
   setStatus(`Voice ${voiceIndex + 1} randomisiert.`);
 }
 
-function saveVoiceAsUserPreset(voiceId) {
+async function saveVoiceAsUserPreset(voiceId) {
   const voice = getVoiceById(voiceId);
   const view = voiceViews.get(voiceId);
 
@@ -772,17 +786,20 @@ function saveVoiceAsUserPreset(voiceId) {
     voice.presetSource === "user" ? `${voice.presetName} Copy` : voice.presetName,
   );
   const preset = createUserPresetSnapshot(voice, presetName);
+  const nextUserPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
+  const persistence = await commitUserPresetChanges(nextUserPresets);
 
-  userPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
-  persistUserPresets(userPresets);
-  rebuildPresetCatalog();
+  if (!persistence) {
+    return;
+  }
+
   attachVoiceToPreset(voice, preset);
   refreshAllVoiceViews();
   syncAll();
-  setStatus(`Eigenes Preset "${preset.name}" gespeichert.`);
+  setStatus(describePresetSaveStatus(preset.name, persistence));
 }
 
-function updateUserPresetFromVoice(voiceId) {
+async function updateUserPresetFromVoice(voiceId) {
   const voice = getVoiceById(voiceId);
   const view = voiceViews.get(voiceId);
   const existingPreset = findUserPresetById(voice?.presetId);
@@ -793,18 +810,21 @@ function updateUserPresetFromVoice(voiceId) {
 
   const presetName = normalizePresetName(view.presetNameInput.value, existingPreset.name);
   const updatedPreset = createUserPresetSnapshot(voice, presetName, existingPreset);
+  const nextUserPresets = [updatedPreset, ...userPresets.filter((entry) => entry.id !== updatedPreset.id)];
+  const persistence = await commitUserPresetChanges(nextUserPresets);
 
-  userPresets = [updatedPreset, ...userPresets.filter((entry) => entry.id !== updatedPreset.id)];
-  persistUserPresets(userPresets);
-  rebuildPresetCatalog();
+  if (!persistence) {
+    return;
+  }
+
   syncVoiceNamesForPreset(updatedPreset.id, updatedPreset.name);
   attachVoiceToPreset(voice, updatedPreset);
   refreshAllVoiceViews();
   syncAll();
-  setStatus(`Eigenes Preset "${updatedPreset.name}" aktualisiert.`);
+  setStatus(describePresetUpdateStatus(updatedPreset.name, persistence));
 }
 
-function deleteUserPresetFromVoice(voiceId) {
+async function deleteUserPresetFromVoice(voiceId) {
   const voice = getVoiceById(voiceId);
   const preset = findUserPresetById(voice?.presetId);
 
@@ -817,13 +837,66 @@ function deleteUserPresetFromVoice(voiceId) {
     return;
   }
 
-  userPresets = userPresets.filter((entry) => entry.id !== preset.id);
-  persistUserPresets(userPresets);
-  rebuildPresetCatalog();
+  const nextUserPresets = userPresets.filter((entry) => entry.id !== preset.id);
+  const persistence = await commitUserPresetChanges(nextUserPresets);
+
+  if (!persistence) {
+    return;
+  }
+
   detachVoiceFromPreset(voice);
   refreshAllVoiceViews();
   syncAll();
-  setStatus(`Eigenes Preset "${preset.name}" geloescht. Die aktuelle Voice bleibt als lokaler Stand erhalten.`);
+  setStatus(describePresetDeleteStatus(preset.name, persistence));
+}
+
+async function commitUserPresetChanges(nextUserPresets) {
+  const persistence = await persistUserPresets(nextUserPresets);
+
+  if (!persistence?.ok) {
+    if (persistence?.error) {
+      console.error(persistence.error);
+    }
+
+    setStatus(describePresetPersistError(persistence));
+    return null;
+  }
+
+  userPresets = nextUserPresets;
+  rebuildPresetCatalog();
+  return persistence;
+}
+
+function describePresetPersistError(persistence) {
+  if (persistence?.reason === "cancelled") {
+    return "Preset-Aenderung abgebrochen. Keine Markdown-Datei ausgewaehlt.";
+  }
+
+  return `Preset-Datei konnte nicht geschrieben werden: ${persistence?.error?.message ?? "Unbekannter Fehler"}.`;
+}
+
+function describePresetSaveStatus(presetName, persistence) {
+  if (persistence.mode === "file") {
+    return `Eigenes Preset "${presetName}" gespeichert. Markdown-Datei "${persistence.fileName}" aktualisiert.`;
+  }
+
+  return `Eigenes Preset "${presetName}" gespeichert. Markdown-Datei wurde heruntergeladen.`;
+}
+
+function describePresetUpdateStatus(presetName, persistence) {
+  if (persistence.mode === "file") {
+    return `Eigenes Preset "${presetName}" aktualisiert. Markdown-Datei "${persistence.fileName}" aktualisiert.`;
+  }
+
+  return `Eigenes Preset "${presetName}" aktualisiert. Markdown-Datei wurde heruntergeladen.`;
+}
+
+function describePresetDeleteStatus(presetName, persistence) {
+  if (persistence.mode === "file") {
+    return `Eigenes Preset "${presetName}" geloescht. Die aktuelle Voice bleibt lokal, Markdown-Datei "${persistence.fileName}" wurde aktualisiert.`;
+  }
+
+  return `Eigenes Preset "${presetName}" geloescht. Die aktuelle Voice bleibt lokal, Markdown-Datei wurde heruntergeladen.`;
 }
 
 function attachVoiceToPreset(voice, preset) {

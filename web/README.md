@@ -34,9 +34,11 @@ npm run dev -- --host 0.0.0.0
 ## Stand
 
 - Mehrere layerbare Voices mit gemeinsamem BPM
+- BPM-Randomize-Button direkt im Header
 - `+ Voice` klont die aktive Voice inklusive aller lokalen Parameter
 - Pro Voice eigene Preset-Auswahl, Randomize, Mute und Editoren
-- Eigene User-Presets werden lokal im Browser gespeichert und koennen pro Voice aktualisiert oder geloescht werden
+- Pro Voice ist `Master Gain` manuell steuerbar und wird von `Randomize` nicht veraendert
+- Eigene User-Presets werden beim ersten Save in eine Markdown-Datei geschrieben und danach darueber aktualisiert
 - Letzte Session wird lokal wiederhergestellt, damit Debug- und Recall-Staende nach Reload erhalten bleiben
 - 16 Bessel-Moden aus den Original-Nullstellen
 - Echtzeit-Exciter aus `click_shape`, `amps`, `nz_env`

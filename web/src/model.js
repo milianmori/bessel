@@ -14,6 +14,8 @@ const DEFAULT_NOISE_ENV = {
   ],
 };
 
+export const FIXED_MASTER_GAIN = 1;
+
 const DEFAULT_PRESET_VALUES = {
   tuning: 440,
   size: 0.5,
@@ -25,7 +27,7 @@ const DEFAULT_PRESET_VALUES = {
   pitchEnvRange: 0,
   nzEnvDurMs: 50,
   tempo: 118,
-  masterGain: 0.72,
+  masterGain: FIXED_MASTER_GAIN,
 };
 
 export async function loadPresets() {
