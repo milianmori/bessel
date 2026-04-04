@@ -1,16 +1,16 @@
 import {
-  createPresetFromVoice,
+  createPresetFromVoices,
   normalizeStoredUserPreset,
   restoreVoiceState,
   serializePresetState,
   serializeVoiceState,
 } from "./model.js";
 
-const USER_PRESETS_KEY = "ersatz-bessel:user-presets:v1";
+const USER_PRESETS_KEY = "ersatz-bessel:user-presets:v2";
 const SESSION_KEY = "ersatz-bessel:session:v1";
 const PRESET_FILE_DB_NAME = "ersatz-bessel-file-handles";
 const PRESET_FILE_STORE_NAME = "handles";
-const USER_PRESET_FILE_HANDLE_KEY = "user-presets-markdown";
+const USER_PRESET_FILE_HANDLE_KEY = "user-presets-markdown-v2";
 const USER_PRESET_FILE_NAME = "ersatz-bessel-user-presets.md";
 
 let runtimePresetFileHandle = null;
@@ -27,7 +27,8 @@ export async function loadUserPresets() {
 }
 
 export async function persistUserPresets(userPresets) {
-  const serializedPresets = userPresets.map((preset) => serializePresetState(preset));
+  const uniqueUserPresets = dedupeUserPresetsByName(userPresets);
+  const serializedPresets = uniqueUserPresets.map((preset) => serializePresetState(preset));
   const markdown = createPresetMarkdownDocument(serializedPresets);
 
   if (supportsPresetFileAccess()) {
@@ -45,7 +46,7 @@ export async function persistUserPresets(userPresets) {
 
     try {
       await writePresetMarkdownFile(handle, markdown);
-      writeUserPresetCache(userPresets);
+      writeUserPresetCache(uniqueUserPresets);
       return {
         ok: true,
         mode: "file",
@@ -59,7 +60,7 @@ export async function persistUserPresets(userPresets) {
 
   try {
     downloadPresetMarkdown(markdown);
-    writeUserPresetCache(userPresets);
+    writeUserPresetCache(uniqueUserPresets);
     return {
       ok: true,
       mode: "download",
@@ -70,10 +71,10 @@ export async function persistUserPresets(userPresets) {
   }
 }
 
-export function createUserPresetSnapshot(voice, name, existingPreset = null) {
+export function createUserPresetSnapshot(voices, name, existingPreset = null) {
   const timestamp = Date.now();
 
-  return createPresetFromVoice(voice, {
+  return createPresetFromVoices(voices, {
     id: existingPreset?.id ?? timestamp,
     name,
     source: "user",
@@ -127,15 +128,17 @@ function readCachedUserPresets() {
   const payload = readJson(USER_PRESETS_KEY);
   const presets = Array.isArray(payload?.presets) ? payload.presets : [];
 
-  return presets
+  return dedupeUserPresetsByName(
+    presets
     .map((preset) => normalizeStoredUserPreset(preset))
     .filter(Boolean)
-    .sort(sortUserPresets);
+    .sort(sortUserPresets),
+  );
 }
 
 function writeUserPresetCache(userPresets) {
   writeJson(USER_PRESETS_KEY, {
-    version: 1,
+    version: 2,
     presets: userPresets.map((preset) => serializePresetState(preset)),
   });
 }
@@ -167,10 +170,36 @@ function parsePresetMarkdownDocument(markdown) {
   const payload = JSON.parse(jsonBlockMatch?.[1] ?? markdown);
   const presets = Array.isArray(payload?.presets) ? payload.presets : [];
 
-  return presets
+  return dedupeUserPresetsByName(
+    presets
     .map((preset) => normalizeStoredUserPreset(preset))
     .filter(Boolean)
-    .sort(sortUserPresets);
+    .sort(sortUserPresets),
+  );
+}
+
+function dedupeUserPresetsByName(userPresets) {
+  const seenNames = new Set();
+
+  return [...userPresets]
+    .sort(sortUserPresets)
+    .filter((preset) => {
+      const normalizedName = normalizePresetNameKey(preset?.name);
+
+      if (!normalizedName || seenNames.has(normalizedName)) {
+        return false;
+      }
+
+      seenNames.add(normalizedName);
+      return true;
+    });
+}
+
+function normalizePresetNameKey(value) {
+  return String(value ?? "")
+    .trim()
+    .slice(0, 48)
+    .toLocaleLowerCase("de");
 }
 
 function createPresetMarkdownDocument(serializedPresets) {
@@ -201,7 +230,7 @@ function createPresetMarkdownDocument(serializedPresets) {
   lines.push(
     JSON.stringify(
       {
-        version: 1,
+        version: 2,
         exportedAt,
         presets: serializedPresets,
       },

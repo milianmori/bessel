@@ -24,6 +24,40 @@
         </div>
 
         <div class="transport-cluster">
+          <div class="header-preset-panel">
+            <div class="panel-head header-preset-head">
+              <div>
+                <p class="eyebrow">Presets</p>
+                <h2>Layer Stack</h2>
+              </div>
+              <p class="panel-note">Sichert immer alle Voices gemeinsam.</p>
+            </div>
+
+            <div class="header-preset-grid">
+              <label class="control compact">
+                <span>Preset</span>
+                <select id="preset-select"></select>
+              </label>
+              <label class="control compact">
+                <span>Name</span>
+                <input
+                  id="preset-name-input"
+                  type="text"
+                  maxlength="48"
+                  placeholder="Neues Preset"
+                />
+              </label>
+              <div class="button-row header-preset-buttons">
+                <button id="load-preset-button" type="button" class="ghost">Preset laden</button>
+                <button id="save-preset-button" type="button" class="ghost">Preset sichern</button>
+                <button id="update-preset-button" type="button" class="ghost">Preset updaten</button>
+                <button id="delete-preset-button" type="button" class="ghost danger">Preset loeschen</button>
+              </div>
+            </div>
+
+            <p class="status-line header-preset-state" id="preset-state-line"></p>
+          </div>
+
           <label class="control">
             <span>Tempo</span>
             <div class="value-row">

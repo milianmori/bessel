@@ -67,7 +67,9 @@ export async function loadPresets() {
         id: Number(slotId),
         name: `Preset ${slotId}`,
         source: "factory",
-        data: slot?.data ?? {},
+        data: {
+          voices: [slot?.data ?? {}],
+        },
       }),
     );
 }
@@ -85,15 +87,19 @@ export function cloneState(state) {
 }
 
 export function createPresetFromVoice(voice, metadata = {}) {
+  return createPresetFromVoices([voice], metadata);
+}
+
+export function createPresetFromVoices(voices, metadata = {}) {
   const timestamp = Date.now();
 
   return normalizePresetDefinition({
     id: metadata.id ?? timestamp,
-    name: metadata.name ?? voice.presetName ?? `User Preset ${timestamp}`,
+    name: metadata.name ?? voices[0]?.presetName ?? `Preset ${timestamp}`,
     source: metadata.source ?? "user",
     createdAt: metadata.createdAt ?? timestamp,
     updatedAt: metadata.updatedAt ?? timestamp,
-    data: voice,
+    data: { voices },
   });
 }
 
@@ -104,7 +110,7 @@ export function normalizeStoredUserPreset(raw) {
 
   return normalizePresetDefinition({
     id: raw.id ?? Date.now(),
-    name: raw.name ?? "User Preset",
+    name: raw.name ?? "Preset",
     source: "user",
     createdAt: raw.createdAt ?? null,
     updatedAt: raw.updatedAt ?? raw.createdAt ?? null,
@@ -146,7 +152,7 @@ export function serializePresetState(preset) {
     source: normalized.source,
     createdAt: normalized.createdAt,
     updatedAt: normalized.updatedAt,
-    ...serializeVoicePayload(normalized),
+    voices: normalized.voices.map((voice) => serializeVoicePayload(voice)),
   };
 }
 
@@ -329,13 +335,17 @@ export function normalizeEnvelopePoints(points) {
 }
 
 function normalizePresetDefinition({ id, name, source = "factory", createdAt = null, updatedAt = null, data = {} }) {
+  const voices = normalizePresetVoices(data);
+  const primaryVoice = voices[0] ?? normalizeVoicePayload(data);
+
   return {
     id: normalizePresetId(id) ?? Date.now(),
     name: sanitizeName(name, `Preset ${id}`),
     source: normalizePresetSource(source),
     createdAt: normalizeTimestamp(createdAt),
     updatedAt: normalizeTimestamp(updatedAt),
-    ...normalizeVoicePayload(data),
+    voices,
+    ...primaryVoice,
   };
 }
 
@@ -375,6 +385,13 @@ function ensureLength(values, length, fallback) {
   const source = Array.isArray(values) ? values : [];
   const output = Array.from({ length }, (_, index) => clamp(source[index] ?? fallback, 0, 1));
   return output;
+}
+
+function normalizePresetVoices(raw = {}) {
+  const rawVoices =
+    raw && typeof raw === "object" && Array.isArray(raw.voices) && raw.voices.length ? raw.voices : [raw];
+
+  return rawVoices.map((voice) => normalizeVoicePayload(voice));
 }
 
 function normalizeVoicePayload(raw = {}) {
