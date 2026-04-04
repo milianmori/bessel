@@ -6,15 +6,16 @@ import {
   summarizeWeights,
 } from "./model.js";
 import {
-  AMP_MODE_OPTIONS,
   AMP_PATTERN_SOURCE_OPTIONS,
-  RHYTHM_MODE_OPTIONS,
+  PATTERN_MODE_GROUPS,
+  applyPatternModeValue,
   createAmpPattern,
   describePatternSelection,
+  getPatternModeValue,
   normalizeAmpMode,
   normalizeAmpPatternSource,
   normalizeRhythmMode,
-  shouldUseRhythmPattern,
+  shouldUseClassicWebPattern,
 } from "./amp-patterns.js";
 import { BesselAudioEngine } from "./audio-engine.js";
 import { MultiSlider } from "./ui/multislider.js";
@@ -388,15 +389,11 @@ function createVoiceCardShell(voice, index) {
             <select class="voice-pattern-source-select"></select>
           </label>
           <label class="control">
-            <span>Amp Mode</span>
-            <select class="voice-amp-mode-select"></select>
-          </label>
-          <label class="control">
-            <span>Rhythm</span>
-            <select class="voice-rhythm-mode-select"></select>
+            <span>Mode</span>
+            <select class="voice-pattern-mode-select"></select>
           </label>
         </div>
-        <p class="panel-note">16 Trigger-Staerken pro Voice. Moduswechsel zieht sofort ein neues Pattern, danach bleibt der Multislider frei editierbar.</p>
+        <p class="panel-note">16 Trigger-Staerken pro Voice. Unter Rhythm liegen jetzt die frueheren Amp-Modi und die neuen Max-Rhythmen zusammen; danach bleibt der Multislider frei editierbar.</p>
         <canvas class="editor-canvas compact-editor-canvas voice-amps-canvas" width="960" height="220"></canvas>
       </section>
     </div>
@@ -425,8 +422,7 @@ function createVoiceCardShell(voice, index) {
     ampsCanvas: root.querySelector(".voice-amps-canvas"),
     patternRefreshButton: root.querySelector(".voice-pattern-refresh-button"),
     patternSourceSelect: root.querySelector(".voice-pattern-source-select"),
-    ampModeSelect: root.querySelector(".voice-amp-mode-select"),
-    rhythmModeSelect: root.querySelector(".voice-rhythm-mode-select"),
+    patternModeSelect: root.querySelector(".voice-pattern-mode-select"),
     addPointButton: root.querySelector(".voice-add-point-button"),
     removePointButton: root.querySelector(".voice-remove-point-button"),
     segmentCurve: root.querySelector(".voice-segment-curve"),
@@ -443,8 +439,7 @@ function createVoiceCardShell(voice, index) {
 function initializeVoiceCard(view, voiceId, index) {
   populateVoicePresetSelect(view.presetSelect, getVoiceById(voiceId));
   populateSelectWithOptions(view.patternSourceSelect, AMP_PATTERN_SOURCE_OPTIONS);
-  populateSelectWithOptions(view.ampModeSelect, AMP_MODE_OPTIONS);
-  populateSelectWithOptions(view.rhythmModeSelect, RHYTHM_MODE_OPTIONS);
+  populatePatternModeSelect(view.patternModeSelect);
   rebuildVoiceScalarControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
 
   view.clickSlider = new MultiSlider({
@@ -543,17 +538,10 @@ function initializeVoiceCard(view, voiceId, index) {
     });
   });
 
-  view.ampModeSelect.addEventListener("change", (event) => {
+  view.patternModeSelect.addEventListener("change", (event) => {
     event.stopPropagation();
     updateVoicePatternSelection(voiceId, {
-      ampMode: Number(view.ampModeSelect.value),
-    });
-  });
-
-  view.rhythmModeSelect.addEventListener("change", (event) => {
-    event.stopPropagation();
-    updateVoicePatternSelection(voiceId, {
-      rhythmMode: Number(view.rhythmModeSelect.value),
+      patternMode: view.patternModeSelect.value,
     });
   });
 
@@ -698,6 +686,38 @@ function populateSelectWithOptions(select, options) {
   });
 }
 
+function populatePatternModeSelect(select) {
+  select.textContent = "";
+
+  PATTERN_MODE_GROUPS.forEach((groupDefinition) => {
+    const group = document.createElement("optgroup");
+    group.label = groupDefinition.label;
+
+    groupDefinition.options.forEach((option) => {
+      const element = document.createElement("option");
+      element.value = option.value;
+      element.textContent = option.label;
+      group.append(element);
+    });
+
+    select.append(group);
+  });
+}
+
+function getRandomPatternModeValue(currentValue = "") {
+  const allValues = PATTERN_MODE_GROUPS.flatMap((groupDefinition) =>
+    groupDefinition.options.map((option) => option.value),
+  );
+  const alternatives = allValues.filter((value) => value !== currentValue);
+  const pool = alternatives.length ? alternatives : allValues;
+
+  if (!pool.length) {
+    return currentValue;
+  }
+
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function getVoiceScalarDefinitions(voiceType) {
   return voiceType === "kick" ? kickVoiceScalarDefinitions : percVoiceScalarDefinitions;
 }
@@ -798,14 +818,10 @@ function refreshVoiceView(view) {
 
 function refreshVoicePatternControls(view, voice) {
   view.patternSourceSelect.value = String(voice.ampPatternSource);
-  view.ampModeSelect.value = String(voice.ampMode);
-  view.rhythmModeSelect.value = String(voice.rhythmMode);
+  view.patternModeSelect.value = getPatternModeValue(voice);
 
-  const rhythmSourceActive = normalizeAmpPatternSource(voice.ampPatternSource) === 0;
-  const rhythmPatternActive = shouldUseRhythmPattern(voice.ampPatternSource, voice.rhythmMode);
-
-  view.rhythmModeSelect.disabled = !rhythmSourceActive;
-  view.ampModeSelect.disabled = rhythmPatternActive;
+  const classicWebSourceActive = shouldUseClassicWebPattern(voice.ampPatternSource);
+  view.patternModeSelect.disabled = classicWebSourceActive;
 }
 
 function updateVoiceCurveControl(view) {
@@ -914,6 +930,7 @@ function buildAmpPatternForVoice(voice) {
     ampPatternSource: voice.ampPatternSource,
     ampMode: voice.ampMode,
     rhythmMode: voice.rhythmMode,
+    voiceType: voice.voiceType,
   });
 }
 
@@ -938,6 +955,12 @@ function updateVoicePatternSelection(voiceId, nextSettings = {}) {
     voice.rhythmMode = normalizeRhythmMode(nextSettings.rhythmMode);
   }
 
+  if (Object.hasOwn(nextSettings, "patternMode")) {
+    const normalizedPatternMode = applyPatternModeValue(nextSettings.patternMode, voice);
+    voice.ampMode = normalizedPatternMode.ampMode;
+    voice.rhythmMode = normalizedPatternMode.rhythmMode;
+  }
+
   voice.amps = buildAmpPatternForVoice(voice);
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
@@ -952,6 +975,13 @@ function regenerateVoicePattern(voiceId) {
 
   if (!voice || voiceIndex === -1 || !view) {
     return;
+  }
+
+  if (!shouldUseClassicWebPattern(voice.ampPatternSource)) {
+    const nextPatternMode = getRandomPatternModeValue(getPatternModeValue(voice));
+    const normalizedPatternMode = applyPatternModeValue(nextPatternMode, voice);
+    voice.ampMode = normalizedPatternMode.ampMode;
+    voice.rhythmMode = normalizedPatternMode.rhythmMode;
   }
 
   voice.amps = buildAmpPatternForVoice(voice);

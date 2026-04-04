@@ -1,6 +1,6 @@
 export const AMP_PATTERN_SOURCE_OPTIONS = [
   { value: 0, label: "Rhythm" },
-  { value: 1, label: "Amp" },
+  { value: 2, label: "Web" },
 ];
 
 export const AMP_MODE_OPTIONS = [
@@ -25,12 +25,29 @@ export const RHYTHM_MODE_OPTIONS = [
   { value: 10, label: "Dropouts" },
 ];
 
-export const DEFAULT_AMP_PATTERN_SOURCE = 1;
+export const DEFAULT_AMP_PATTERN_SOURCE = 0;
 export const DEFAULT_AMP_MODE = 5;
 export const DEFAULT_RHYTHM_MODE = 0;
 
 const ampModeLabels = new Map(AMP_MODE_OPTIONS.map((option) => [option.value, option.label]));
 const rhythmModeLabels = new Map(RHYTHM_MODE_OPTIONS.map((option) => [option.value, option.label]));
+
+export const PATTERN_MODE_GROUPS = [
+  {
+    label: "Amp",
+    options: AMP_MODE_OPTIONS.map((option) => ({
+      value: `amp:${option.value}`,
+      label: option.label,
+    })),
+  },
+  {
+    label: "Rhythm",
+    options: RHYTHM_MODE_OPTIONS.filter((option) => option.value > 0).map((option) => ({
+      value: `rhythm:${option.value}`,
+      label: option.label,
+    })),
+  },
+];
 
 export function normalizeAmpPatternSource(value) {
   if (value === "rhythm") {
@@ -38,7 +55,11 @@ export function normalizeAmpPatternSource(value) {
   }
 
   if (value === "amp") {
-    return 1;
+    return 0;
+  }
+
+  if (value === "web") {
+    return 2;
   }
 
   if (value === null || value === undefined || value === "") {
@@ -46,7 +67,12 @@ export function normalizeAmpPatternSource(value) {
   }
 
   const numeric = Number(value);
-  return Number.isFinite(numeric) ? clamp(Math.round(numeric), 0, 1) : DEFAULT_AMP_PATTERN_SOURCE;
+
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_AMP_PATTERN_SOURCE;
+  }
+
+  return Math.round(numeric) === 2 ? 2 : 0;
 }
 
 export function normalizeAmpMode(value) {
@@ -71,6 +97,52 @@ export function shouldUseRhythmPattern(ampPatternSource, rhythmMode) {
   return normalizeAmpPatternSource(ampPatternSource) === 0 && normalizeRhythmMode(rhythmMode) > 0;
 }
 
+export function shouldUseClassicWebPattern(ampPatternSource) {
+  return normalizeAmpPatternSource(ampPatternSource) === 2;
+}
+
+export function getPatternModeValue({
+  ampMode = DEFAULT_AMP_MODE,
+  rhythmMode = DEFAULT_RHYTHM_MODE,
+} = {}) {
+  const normalizedRhythmMode = normalizeRhythmMode(rhythmMode);
+
+  if (normalizedRhythmMode > 0) {
+    return `rhythm:${normalizedRhythmMode}`;
+  }
+
+  return `amp:${normalizeAmpMode(ampMode)}`;
+}
+
+export function applyPatternModeValue(
+  value,
+  {
+    ampMode = DEFAULT_AMP_MODE,
+    rhythmMode = DEFAULT_RHYTHM_MODE,
+  } = {},
+) {
+  const modeValue = String(value ?? "");
+
+  if (modeValue.startsWith("rhythm:")) {
+    return {
+      ampMode: normalizeAmpMode(ampMode),
+      rhythmMode: normalizeRhythmMode(modeValue.slice("rhythm:".length)),
+    };
+  }
+
+  if (modeValue.startsWith("amp:")) {
+    return {
+      ampMode: normalizeAmpMode(modeValue.slice("amp:".length)),
+      rhythmMode: DEFAULT_RHYTHM_MODE,
+    };
+  }
+
+  return {
+    ampMode: normalizeAmpMode(ampMode),
+    rhythmMode: normalizeRhythmMode(rhythmMode),
+  };
+}
+
 export function getAmpModeLabel(value) {
   return ampModeLabels.get(normalizeAmpMode(value)) ?? ampModeLabels.get(DEFAULT_AMP_MODE);
 }
@@ -88,12 +160,12 @@ export function describePatternSelection({
   const normalizedAmpMode = normalizeAmpMode(ampMode);
   const normalizedRhythmMode = normalizeRhythmMode(rhythmMode);
 
-  if (normalizedSource === 0) {
-    if (normalizedRhythmMode > 0) {
-      return `Rhythm ${getRhythmModeLabel(normalizedRhythmMode)}`;
-    }
+  if (normalizedSource === 2) {
+    return "Web Classic";
+  }
 
-    return `Rhythm Off -> Amp ${getAmpModeLabel(normalizedAmpMode)}`;
+  if (normalizedRhythmMode > 0) {
+    return `Rhythm ${getRhythmModeLabel(normalizedRhythmMode)}`;
   }
 
   return `Amp ${getAmpModeLabel(normalizedAmpMode)}`;
@@ -105,12 +177,17 @@ export function createAmpPattern(
     ampPatternSource = DEFAULT_AMP_PATTERN_SOURCE,
     ampMode = DEFAULT_AMP_MODE,
     rhythmMode = DEFAULT_RHYTHM_MODE,
+    voiceType = "perc",
   } = {},
 ) {
   const normalizedLength = Math.max(1, Math.round(Number(length) || 16));
   const normalizedSource = normalizeAmpPatternSource(ampPatternSource);
   const normalizedAmpMode = normalizeAmpMode(ampMode);
   const normalizedRhythmMode = normalizeRhythmMode(rhythmMode);
+
+  if (shouldUseClassicWebPattern(normalizedSource)) {
+    return createClassicWebPattern(normalizedLength, voiceType);
+  }
 
   if (shouldUseRhythmPattern(normalizedSource, normalizedRhythmMode)) {
     return createRhythmPattern(normalizedLength, normalizedRhythmMode);
@@ -175,6 +252,30 @@ function createStepPattern(length, interval, excludeLastStep) {
 
 function createAllPattern(length) {
   return Array.from({ length }, (_, step) => randomVelocityForStep(step, true));
+}
+
+function createClassicWebPattern(length, voiceType) {
+  if (voiceType === "kick") {
+    return createClassicWebKickPattern(length);
+  }
+
+  return Array.from({ length }, () => Math.random());
+}
+
+function createClassicWebKickPattern(length) {
+  return Array.from({ length }, (_, index) => {
+    const lane = index % 4;
+
+    if (lane === 0) {
+      return randomInRange(0.72, 1, 0.001);
+    }
+
+    if (lane === 2) {
+      return Math.random() < 0.45 ? randomInRange(0.12, 0.42, 0.001) : 0;
+    }
+
+    return Math.random() < 0.18 ? randomInRange(0.08, 0.24, 0.001) : 0;
+  });
 }
 
 function randomVelocityForStep(stepIndex, allActive) {
