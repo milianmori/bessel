@@ -119,18 +119,30 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
 
 const MAX_MODAL_FREQUENCY_FACTOR = 8;
 const RUNAWAY_STATE_LIMIT = 64;
+const TWO_PI = Math.PI * 2;
 
 function createVoiceRuntime(config) {
   const frequencies = Array.isArray(config.frequencies) ? config.frequencies : new Array(16).fill(220);
 
   return {
     voiceId: config.voiceId,
+    voiceType: "perc",
     muted: false,
     masterGain: 0.72,
     pitchEnvDurMs: 50,
     pitchEnvCurve: 0,
     pitchEnvRange: 0,
     nzEnvDurMs: 50,
+    kickBodyFreqHz: 52,
+    kickBodyDecayMs: 360,
+    kickPitchDropSt: 11,
+    kickPitchDropMs: 48,
+    kickClickLevel: 0.16,
+    kickClickDecayMs: 12,
+    kickNoiseLevel: 0.04,
+    kickNoiseDecayMs: 36,
+    kickDrive: 0.14,
+    kickTone: 0.58,
     clickShape: new Float32Array(64).fill(0.4),
     amps: new Float32Array(16).fill(0.65),
     frequencies: Float32Array.from(frequencies),
@@ -149,11 +161,23 @@ function createVoiceRuntime(config) {
     noiseAmp: 0,
     pitchRemaining: 0,
     pitchTotal: 1,
+    kickAmplitude: 0,
+    kickBodyRemaining: 0,
+    kickBodyTotal: 1,
+    kickPitchRemaining: 0,
+    kickPitchTotal: 1,
+    kickClickRemaining: 0,
+    kickClickTotal: 1,
+    kickNoiseRemaining: 0,
+    kickNoiseTotal: 1,
+    kickPhase: 0,
+    kickToneState: 0,
   };
 }
 
 function applyVoiceConfig(voice, config) {
   voice.voiceId = config.voiceId;
+  voice.voiceType = normalizeVoiceType(config.voiceType);
   voice.muted = Boolean(config.muted);
 
   if (typeof config.masterGain === "number") {
@@ -174,6 +198,46 @@ function applyVoiceConfig(voice, config) {
 
   if (typeof config.nzEnvDurMs === "number") {
     voice.nzEnvDurMs = Math.max(0, config.nzEnvDurMs);
+  }
+
+  if (typeof config.kickBodyFreqHz === "number") {
+    voice.kickBodyFreqHz = clamp(config.kickBodyFreqHz, 28, 120);
+  }
+
+  if (typeof config.kickBodyDecayMs === "number") {
+    voice.kickBodyDecayMs = clamp(config.kickBodyDecayMs, 60, 2000);
+  }
+
+  if (typeof config.kickPitchDropSt === "number") {
+    voice.kickPitchDropSt = clamp(config.kickPitchDropSt, 0, 24);
+  }
+
+  if (typeof config.kickPitchDropMs === "number") {
+    voice.kickPitchDropMs = clamp(config.kickPitchDropMs, 0, 250);
+  }
+
+  if (typeof config.kickClickLevel === "number") {
+    voice.kickClickLevel = clamp(config.kickClickLevel, 0, 1);
+  }
+
+  if (typeof config.kickClickDecayMs === "number") {
+    voice.kickClickDecayMs = clamp(config.kickClickDecayMs, 1, 80);
+  }
+
+  if (typeof config.kickNoiseLevel === "number") {
+    voice.kickNoiseLevel = clamp(config.kickNoiseLevel, 0, 1);
+  }
+
+  if (typeof config.kickNoiseDecayMs === "number") {
+    voice.kickNoiseDecayMs = clamp(config.kickNoiseDecayMs, 1, 220);
+  }
+
+  if (typeof config.kickDrive === "number") {
+    voice.kickDrive = clamp(config.kickDrive, 0, 1);
+  }
+
+  if (typeof config.kickTone === "number") {
+    voice.kickTone = clamp(config.kickTone, 0, 1);
   }
 
   if (Array.isArray(config.clickShape)) {
@@ -225,6 +289,17 @@ function resetVoiceState(voice, clearModes) {
   voice.noiseAmp = 0;
   voice.pitchRemaining = 0;
   voice.pitchTotal = 1;
+  voice.kickAmplitude = 0;
+  voice.kickBodyRemaining = 0;
+  voice.kickBodyTotal = 1;
+  voice.kickPitchRemaining = 0;
+  voice.kickPitchTotal = 1;
+  voice.kickClickRemaining = 0;
+  voice.kickClickTotal = 1;
+  voice.kickNoiseRemaining = 0;
+  voice.kickNoiseTotal = 1;
+  voice.kickPhase = 0;
+  voice.kickToneState = 0;
 
   if (clearModes) {
     voice.modeStates = voice.modeStates.map(() => ({ d1: 0, d2: 0 }));
@@ -237,13 +312,28 @@ function triggerVoiceStep(voice, stepIndex) {
     return 0;
   }
 
+  const amp = voice.amps[stepIndex % voice.amps.length] ?? 0;
+
+  if (voice.voiceType === "kick") {
+    voice.kickAmplitude = amp;
+    voice.kickPhase = 0;
+    voice.kickBodyTotal = Math.max(1, (voice.kickBodyDecayMs / 1000) * sampleRate);
+    voice.kickBodyRemaining = amp > 0 ? voice.kickBodyTotal : 0;
+    voice.kickPitchTotal = Math.max(1, (voice.kickPitchDropMs / 1000) * sampleRate);
+    voice.kickPitchRemaining = voice.kickPitchDropMs > 0 && amp > 0 ? voice.kickPitchTotal : 0;
+    voice.kickClickTotal = Math.max(1, (voice.kickClickDecayMs / 1000) * sampleRate);
+    voice.kickClickRemaining = voice.kickClickLevel > 0 && amp > 0 ? voice.kickClickTotal : 0;
+    voice.kickNoiseTotal = Math.max(1, (voice.kickNoiseDecayMs / 1000) * sampleRate);
+    voice.kickNoiseRemaining = voice.kickNoiseLevel > 0 && amp > 0 ? voice.kickNoiseTotal : 0;
+    return amp;
+  }
+
   if (stepIndex % 4 === 0) {
     const angle = Math.random() * Math.PI * 2;
     voice.panLeft = Math.cos(angle);
     voice.panRight = Math.sin(angle);
   }
 
-  const amp = voice.amps[stepIndex % voice.amps.length] ?? 0;
   voice.clickAmp = amp;
   voice.clickIndex = 0;
   voice.noiseAmp = amp;
@@ -259,6 +349,14 @@ function renderVoiceFrame(voice) {
     return { left: 0, right: 0 };
   }
 
+  if (voice.voiceType === "kick") {
+    return renderKickFrame(voice);
+  }
+
+  return renderPercFrame(voice);
+}
+
+function renderPercFrame(voice) {
   const excitation = renderVoiceExcitation(voice);
   const transpose = renderVoicePitchEnvelope(voice);
   let center = 0;
@@ -303,6 +401,66 @@ function renderVoiceFrame(voice) {
   };
 }
 
+function renderKickFrame(voice) {
+  const hasBody = voice.kickBodyRemaining > 0 && voice.kickAmplitude > 0;
+  const hasClick = voice.kickClickRemaining > 0 && voice.kickAmplitude > 0;
+  const hasNoise = voice.kickNoiseRemaining > 0 && voice.kickAmplitude > 0;
+
+  if (!hasBody && !hasClick && !hasNoise) {
+    return { left: 0, right: 0 };
+  }
+
+  const pitchEnvelope = renderKickPitchEnvelope(voice);
+  const bodyFrequency = clamp(
+    voice.kickBodyFreqHz * 2 ** ((voice.kickPitchDropSt * pitchEnvelope) / 12),
+    20,
+    sampleRate * 0.45,
+  );
+
+  voice.kickPhase += (TWO_PI * bodyFrequency) / sampleRate;
+
+  if (voice.kickPhase >= TWO_PI) {
+    voice.kickPhase -= TWO_PI;
+  }
+
+  let sample = 0;
+
+  if (hasBody) {
+    sample += Math.sin(voice.kickPhase) * renderDecayEnvelope(voice.kickBodyRemaining, voice.kickBodyTotal, 7);
+    voice.kickBodyRemaining -= 1;
+  }
+
+  if (hasClick) {
+    sample +=
+      (Math.random() * 2 - 1) *
+      voice.kickClickLevel *
+      renderDecayEnvelope(voice.kickClickRemaining, voice.kickClickTotal, 22);
+    voice.kickClickRemaining -= 1;
+  }
+
+  if (hasNoise) {
+    sample +=
+      (Math.random() * 2 - 1) *
+      voice.kickNoiseLevel *
+      renderDecayEnvelope(voice.kickNoiseRemaining, voice.kickNoiseTotal, 10);
+    voice.kickNoiseRemaining -= 1;
+  }
+
+  sample *= voice.kickAmplitude;
+
+  const cutoff = 220 + voice.kickTone * 6000;
+  const toneAlpha = 1 - Math.exp((-TWO_PI * cutoff) / sampleRate);
+  voice.kickToneState += toneAlpha * (sample - voice.kickToneState);
+
+  const driven = applyDrive(voice.kickToneState, voice.kickDrive);
+  const output = driven * voice.masterGain;
+
+  return {
+    left: output,
+    right: output,
+  };
+}
+
 function renderVoiceExcitation(voice) {
   let sample = 0;
 
@@ -331,6 +489,35 @@ function renderVoicePitchEnvelope(voice) {
   const shaped = curveTransfer(ramp, voice.pitchEnvCurve);
   voice.pitchRemaining -= 1;
   return shaped * voice.pitchEnvRange;
+}
+
+function renderKickPitchEnvelope(voice) {
+  if (voice.kickPitchRemaining <= 0 || voice.kickPitchDropSt <= 0) {
+    return 0;
+  }
+
+  const phase = 1 - voice.kickPitchRemaining / voice.kickPitchTotal;
+  const envelope = (1 - phase) ** 2.4;
+  voice.kickPitchRemaining -= 1;
+  return envelope;
+}
+
+function renderDecayEnvelope(remaining, total, slope) {
+  if (remaining <= 0 || total <= 0) {
+    return 0;
+  }
+
+  const phase = 1 - remaining / total;
+  return Math.exp(-phase * slope);
+}
+
+function applyDrive(value, drive) {
+  if (drive <= 0.0001) {
+    return value;
+  }
+
+  const gain = 1 + drive * 10;
+  return Math.tanh(value * gain) / Math.tanh(gain);
 }
 
 function evaluateEnvelope(points, phase) {
@@ -387,6 +574,10 @@ function sanitize(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeVoiceType(value) {
+  return value === "kick" ? "kick" : "perc";
 }
 
 registerProcessor("ersatz-bessel-engine", ErsatzBesselProcessor);

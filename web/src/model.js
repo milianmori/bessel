@@ -15,6 +15,7 @@ const DEFAULT_NOISE_ENV = {
 };
 
 export const FIXED_MASTER_GAIN = 1;
+const DEFAULT_VOICE_TYPE = "perc";
 
 const DEFAULT_PRESET_VALUES = {
   tuning: 440,
@@ -28,6 +29,19 @@ const DEFAULT_PRESET_VALUES = {
   nzEnvDurMs: 50,
   tempo: 118,
   masterGain: FIXED_MASTER_GAIN,
+};
+
+const DEFAULT_KICK_VALUES = {
+  kickBodyFreqHz: 52,
+  kickBodyDecayMs: 360,
+  kickPitchDropSt: 11,
+  kickPitchDropMs: 48,
+  kickClickLevel: 0.16,
+  kickClickDecayMs: 12,
+  kickNoiseLevel: 0.04,
+  kickNoiseDecayMs: 36,
+  kickDrive: 0.14,
+  kickTone: 0.58,
 };
 
 export async function loadPresets() {
@@ -168,22 +182,53 @@ export function computeModalData(state, sampleRate = 44100) {
   };
 }
 
+export function computeVoiceAnalysis(state, sampleRate = 44100) {
+  if (normalizeVoiceType(state.voiceType) === "kick") {
+    const peakFrequency = clamp(
+      state.kickBodyFreqHz * 2 ** (state.kickPitchDropSt / 12),
+      20,
+      sampleRate / 2,
+    );
+
+    return {
+      type: "kick",
+      frequencies: [state.kickBodyFreqHz, peakFrequency],
+      weights: [state.kickClickLevel, state.kickNoiseLevel, state.kickDrive, state.kickTone],
+    };
+  }
+
+  return {
+    type: "perc",
+    ...computeModalData(state, sampleRate),
+  };
+}
+
 export function formatValue(key, value) {
   switch (key) {
     case "tuning":
+    case "kickBodyFreqHz":
       return `${value.toFixed(1)} Hz`;
     case "size":
     case "hitPosition":
     case "damping":
     case "overtones":
+    case "kickClickLevel":
+    case "kickNoiseLevel":
+    case "kickDrive":
+    case "kickTone":
     case "masterGain":
       return value.toFixed(3);
     case "tempo":
       return `${Math.round(value)} BPM`;
     case "pitchEnvDurMs":
     case "nzEnvDurMs":
+    case "kickBodyDecayMs":
+    case "kickPitchDropMs":
+    case "kickClickDecayMs":
+    case "kickNoiseDecayMs":
       return `${value.toFixed(1)} ms`;
     case "pitchEnvRange":
+    case "kickPitchDropSt":
       return `${value.toFixed(1)} st`;
     case "pitchEnvCurve":
       return value.toFixed(3);
@@ -328,6 +373,7 @@ function ensureLength(values, length, fallback) {
 
 function normalizeVoicePayload(raw = {}) {
   return {
+    voiceType: normalizeVoiceType(raw.voiceType ?? raw.voice_type),
     tuning: readScalar(raw.tuning, DEFAULT_PRESET_VALUES.tuning),
     size: clamp(readScalar(raw.size, DEFAULT_PRESET_VALUES.size), 0.05, 1),
     hitPosition: clamp(readScalar(raw.hitPosition ?? raw.hit_pos, DEFAULT_PRESET_VALUES.hitPosition), 0, 1),
@@ -356,6 +402,24 @@ function normalizeVoicePayload(raw = {}) {
       0,
       220,
     ),
+    kickBodyFreqHz: clamp(readScalar(raw.kickBodyFreqHz, DEFAULT_KICK_VALUES.kickBodyFreqHz), 28, 120),
+    kickBodyDecayMs: clamp(readScalar(raw.kickBodyDecayMs, DEFAULT_KICK_VALUES.kickBodyDecayMs), 60, 2000),
+    kickPitchDropSt: clamp(readScalar(raw.kickPitchDropSt, DEFAULT_KICK_VALUES.kickPitchDropSt), 0, 24),
+    kickPitchDropMs: clamp(readScalar(raw.kickPitchDropMs, DEFAULT_KICK_VALUES.kickPitchDropMs), 0, 250),
+    kickClickLevel: clamp(readScalar(raw.kickClickLevel, DEFAULT_KICK_VALUES.kickClickLevel), 0, 1),
+    kickClickDecayMs: clamp(
+      readScalar(raw.kickClickDecayMs, DEFAULT_KICK_VALUES.kickClickDecayMs),
+      1,
+      80,
+    ),
+    kickNoiseLevel: clamp(readScalar(raw.kickNoiseLevel, DEFAULT_KICK_VALUES.kickNoiseLevel), 0, 1),
+    kickNoiseDecayMs: clamp(
+      readScalar(raw.kickNoiseDecayMs, DEFAULT_KICK_VALUES.kickNoiseDecayMs),
+      1,
+      220,
+    ),
+    kickDrive: clamp(readScalar(raw.kickDrive, DEFAULT_KICK_VALUES.kickDrive), 0, 1),
+    kickTone: clamp(readScalar(raw.kickTone, DEFAULT_KICK_VALUES.kickTone), 0, 1),
     tempo: DEFAULT_PRESET_VALUES.tempo,
     masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0.2, 1.4),
     running: false,
@@ -366,6 +430,7 @@ function serializeVoicePayload(raw = {}) {
   const normalizedState = normalizeVoicePayload(raw);
 
   return {
+    voiceType: normalizedState.voiceType,
     tuning: normalizedState.tuning,
     size: normalizedState.size,
     hitPosition: normalizedState.hitPosition,
@@ -381,6 +446,16 @@ function serializeVoicePayload(raw = {}) {
     pitchEnvDurMs: normalizedState.pitchEnvDurMs,
     pitchEnvRange: normalizedState.pitchEnvRange,
     nzEnvDurMs: normalizedState.nzEnvDurMs,
+    kickBodyFreqHz: normalizedState.kickBodyFreqHz,
+    kickBodyDecayMs: normalizedState.kickBodyDecayMs,
+    kickPitchDropSt: normalizedState.kickPitchDropSt,
+    kickPitchDropMs: normalizedState.kickPitchDropMs,
+    kickClickLevel: normalizedState.kickClickLevel,
+    kickClickDecayMs: normalizedState.kickClickDecayMs,
+    kickNoiseLevel: normalizedState.kickNoiseLevel,
+    kickNoiseDecayMs: normalizedState.kickNoiseDecayMs,
+    kickDrive: normalizedState.kickDrive,
+    kickTone: normalizedState.kickTone,
     masterGain: normalizedState.masterGain,
   };
 }
@@ -407,6 +482,10 @@ function normalizePresetId(value) {
 
 function normalizePresetSource(source) {
   return source === "user" ? "user" : source === "detached" ? "detached" : "factory";
+}
+
+function normalizeVoiceType(value) {
+  return value === "kick" ? "kick" : DEFAULT_VOICE_TYPE;
 }
 
 function normalizeTimestamp(value) {

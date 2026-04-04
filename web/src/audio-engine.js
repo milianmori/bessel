@@ -1,11 +1,11 @@
-import { computeModalData } from "./model.js";
+import { computeVoiceAnalysis } from "./model.js";
 
 export class BesselAudioEngine {
   constructor() {
     this.context = null;
     this.node = null;
     this.analyser = null;
-    this.lastModalDataByVoice = [];
+    this.lastAnalysisByVoice = [];
     this.onStep = null;
   }
 
@@ -47,16 +47,16 @@ export class BesselAudioEngine {
 
   sync(state, options = {}) {
     const sampleRate = this.context?.sampleRate ?? 44100;
-    this.lastModalDataByVoice = state.voices.map((voice) => computeModalData(voice, sampleRate));
+    this.lastAnalysisByVoice = state.voices.map((voice) => computeVoiceAnalysis(voice, sampleRate));
 
     if (this.node) {
       this.node.port.postMessage({
         type: "config",
-        config: buildProcessorConfig(state, this.lastModalDataByVoice, options),
+        config: buildProcessorConfig(state, this.lastAnalysisByVoice, options),
       });
     }
 
-    return this.lastModalDataByVoice;
+    return this.lastAnalysisByVoice;
   }
 
   trigger() {
@@ -66,28 +66,49 @@ export class BesselAudioEngine {
   }
 }
 
-function buildProcessorConfig(state, modalDataByVoice, options) {
+function buildProcessorConfig(state, analysisByVoice, options) {
   return {
     running: state.running,
     tempo: state.tempo,
     resetTransport: Boolean(options.resetTransport),
     resetVoiceIds: Array.isArray(options.resetVoiceIds) ? [...options.resetVoiceIds] : [],
     voices: state.voices.map((voice, index) => {
-      const modalData = modalDataByVoice[index];
+      const analysis = analysisByVoice[index];
 
-      return {
+      const baseConfig = {
         voiceId: voice.voiceId,
+        voiceType: voice.voiceType,
         muted: Boolean(voice.muted),
         masterGain: voice.masterGain,
+        amps: [...voice.amps],
+      };
+
+      if (voice.voiceType === "kick") {
+        return {
+          ...baseConfig,
+          kickBodyFreqHz: voice.kickBodyFreqHz,
+          kickBodyDecayMs: voice.kickBodyDecayMs,
+          kickPitchDropSt: voice.kickPitchDropSt,
+          kickPitchDropMs: voice.kickPitchDropMs,
+          kickClickLevel: voice.kickClickLevel,
+          kickClickDecayMs: voice.kickClickDecayMs,
+          kickNoiseLevel: voice.kickNoiseLevel,
+          kickNoiseDecayMs: voice.kickNoiseDecayMs,
+          kickDrive: voice.kickDrive,
+          kickTone: voice.kickTone,
+        };
+      }
+
+      return {
+        ...baseConfig,
         pitchEnvDurMs: voice.pitchEnvDurMs,
         pitchEnvCurve: voice.pitchEnvCurve,
         pitchEnvRange: voice.pitchEnvRange,
         nzEnvDurMs: voice.nzEnvDurMs,
         clickShape: [...voice.clickShape],
-        amps: [...voice.amps],
         noiseEnvelopePoints: voice.noiseEnvelope.points.map((point) => ({ ...point })),
-        frequencies: [...modalData.frequencies],
-        qCoefficients: [...modalData.qCoefficients],
+        frequencies: [...(analysis?.frequencies ?? [])],
+        qCoefficients: [...(analysis?.qCoefficients ?? [])],
       };
     }),
   };

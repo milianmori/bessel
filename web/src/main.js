@@ -39,7 +39,7 @@ const elements = {
 
 const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
 
-const voiceScalarDefinitions = [
+const percVoiceScalarDefinitions = [
   { key: "tuning", label: "Tuning", min: 20, max: 12000, step: 1, transform: "log" },
   { key: "size", label: "Size", min: 0.05, max: 1, step: 0.001 },
   { key: "hitPosition", label: "Hit Position", min: 0, max: 1, step: 0.001 },
@@ -49,6 +49,20 @@ const voiceScalarDefinitions = [
   { key: "pitchEnvRange", label: "Pitch Env Range", min: -24, max: 24, step: 0.1 },
   { key: "pitchEnvCurve", label: "Pitch Env Curve", min: -1, max: 1, step: 0.001 },
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },
+  { key: "masterGain", label: "Master Gain", min: 0.2, max: 1.4, step: 0.001 },
+];
+
+const kickVoiceScalarDefinitions = [
+  { key: "kickBodyFreqHz", label: "Body Freq", min: 28, max: 120, step: 0.1 },
+  { key: "kickBodyDecayMs", label: "Body Decay", min: 60, max: 2000, step: 1 },
+  { key: "kickPitchDropSt", label: "Pitch Drop", min: 0, max: 24, step: 0.1 },
+  { key: "kickPitchDropMs", label: "Pitch Drop Dur", min: 0, max: 250, step: 1 },
+  { key: "kickClickLevel", label: "Click Level", min: 0, max: 1, step: 0.001 },
+  { key: "kickClickDecayMs", label: "Click Decay", min: 1, max: 80, step: 0.1 },
+  { key: "kickNoiseLevel", label: "Noise Level", min: 0, max: 1, step: 0.001 },
+  { key: "kickNoiseDecayMs", label: "Noise Decay", min: 1, max: 220, step: 0.1 },
+  { key: "kickDrive", label: "Drive", min: 0, max: 1, step: 0.001 },
+  { key: "kickTone", label: "Tone", min: 0, max: 1, step: 0.001 },
   { key: "masterGain", label: "Master Gain", min: 0.2, max: 1.4, step: 0.001 },
 ];
 
@@ -277,6 +291,13 @@ function createVoiceCardShell(voice, index) {
 
     <div class="voice-toolbar">
       <label class="control compact">
+        <span>Voice Type</span>
+        <select class="voice-type-select">
+          <option value="perc">Perc</option>
+          <option value="kick">Kick</option>
+        </select>
+      </label>
+      <label class="control compact">
         <span>Preset</span>
         <select class="voice-preset-select"></select>
       </label>
@@ -302,13 +323,13 @@ function createVoiceCardShell(voice, index) {
         <div class="panel-head voice-subhead">
           <div>
             <p class="eyebrow">Makro</p>
-            <h3>Voice Settings</h3>
+            <h3 class="voice-macro-title">Voice Settings</h3>
           </div>
         </div>
         <div class="controls-grid voice-scalar-controls"></div>
       </section>
 
-      <section class="voice-subpanel">
+      <section class="voice-subpanel voice-click-panel">
         <div class="panel-head voice-subhead">
           <div>
             <p class="eyebrow">Click Buffer</p>
@@ -319,7 +340,7 @@ function createVoiceCardShell(voice, index) {
         <canvas class="editor-canvas compact-editor-canvas voice-click-canvas" width="960" height="220"></canvas>
       </section>
 
-      <section class="voice-subpanel">
+      <section class="voice-subpanel voice-envelope-panel">
         <div class="panel-head voice-subhead">
           <div>
             <p class="eyebrow">Noise Envelope</p>
@@ -360,13 +381,17 @@ function createVoiceCardShell(voice, index) {
     randomButton: root.querySelector(".voice-random-button"),
     muteButton: root.querySelector(".voice-mute-button"),
     removeButton: root.querySelector(".voice-remove-button"),
+    typeSelect: root.querySelector(".voice-type-select"),
     presetSelect: root.querySelector(".voice-preset-select"),
     presetNameInput: root.querySelector(".voice-preset-name-input"),
     savePresetButton: root.querySelector(".voice-save-preset-button"),
     updatePresetButton: root.querySelector(".voice-update-preset-button"),
     deletePresetButton: root.querySelector(".voice-delete-preset-button"),
     stateLine: root.querySelector(".voice-state-line"),
+    macroTitle: root.querySelector(".voice-macro-title"),
     scalarControls: root.querySelector(".voice-scalar-controls"),
+    clickPanel: root.querySelector(".voice-click-panel"),
+    envelopePanel: root.querySelector(".voice-envelope-panel"),
     clickCanvas: root.querySelector(".voice-click-canvas"),
     envelopeCanvas: root.querySelector(".voice-envelope-canvas"),
     ampsCanvas: root.querySelector(".voice-amps-canvas"),
@@ -376,6 +401,7 @@ function createVoiceCardShell(voice, index) {
     segmentCurveValue: root.querySelector(".voice-segment-curve-value"),
     controlInputs: new Map(),
     controlOutputs: new Map(),
+    currentScalarType: null,
     clickSlider: null,
     ampsSlider: null,
     envelopeEditor: null,
@@ -384,7 +410,7 @@ function createVoiceCardShell(voice, index) {
 
 function initializeVoiceCard(view, voiceId, index) {
   populateVoicePresetSelect(view.presetSelect, getVoiceById(voiceId));
-  buildVoiceScalarControls(view, voiceId);
+  rebuildVoiceScalarControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
 
   view.clickSlider = new MultiSlider({
     canvas: view.clickCanvas,
@@ -463,6 +489,11 @@ function initializeVoiceCard(view, voiceId, index) {
     refreshVoiceView(view);
     syncAll();
     setStatus(`Voice ${index + 1} ${voice.muted ? "stumm" : "aktiv"}.`);
+  });
+
+  view.typeSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    switchVoiceType(voiceId, view.typeSelect.value);
   });
 
   if (view.removeButton) {
@@ -595,8 +626,17 @@ function appendPresetGroup(select, label, presetList) {
   select.append(group);
 }
 
-function buildVoiceScalarControls(view, voiceId) {
-  voiceScalarDefinitions.forEach((definition) => {
+function getVoiceScalarDefinitions(voiceType) {
+  return voiceType === "kick" ? kickVoiceScalarDefinitions : percVoiceScalarDefinitions;
+}
+
+function rebuildVoiceScalarControls(view, voiceId, voiceType) {
+  view.currentScalarType = voiceType;
+  view.controlInputs.clear();
+  view.controlOutputs.clear();
+  view.scalarControls.textContent = "";
+
+  getVoiceScalarDefinitions(voiceType).forEach((definition) => {
     const control = document.createElement("label");
     control.className = "control";
 
@@ -638,29 +678,45 @@ function buildVoiceScalarControls(view, voiceId) {
 function refreshVoiceView(view) {
   const voiceId = Number(view.root.dataset.voiceId);
   const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
 
   if (!voice) {
     return;
   }
 
+  if (view.currentScalarType !== voice.voiceType) {
+    rebuildVoiceScalarControls(view, voiceId, voice.voiceType);
+  }
+
   populateVoicePresetSelect(view.presetSelect, voice);
+  view.typeSelect.value = voice.voiceType;
   view.title.textContent = voice.presetName;
+  view.macroTitle.textContent = voice.voiceType === "kick" ? "Kick Settings" : "Voice Settings";
   view.presetSelect.value = voice.presetId === null ? "" : String(voice.presetId);
   view.presetNameInput.value = voice.presetName;
   view.stateLine.textContent = describeVoiceState(voice);
+  view.randomButton.textContent =
+    voice.voiceType === "kick" ? `Random Kick ${voiceIndex + 1}` : `Random Voice ${voiceIndex + 1}`;
   view.muteButton.textContent = voice.muted ? "Unmute" : "Mute";
   view.updatePresetButton.disabled = !(voice.presetSource === "user" && findUserPresetById(voice.presetId));
   view.deletePresetButton.disabled =
     !(voice.presetSource === "user" && findUserPresetById(voice.presetId)) ||
     isUserPresetInUseByOtherVoice(voice.presetId, voice.voiceId);
 
-  voiceScalarDefinitions.forEach((definition) => {
+  getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
     const input = view.controlInputs.get(definition.key);
     const output = view.controlOutputs.get(definition.key);
+
+    if (!input || !output) {
+      return;
+    }
+
     input.value = String(toSliderValue(definition, voice[definition.key]));
     output.textContent = formatValue(definition.key, voice[definition.key]);
   });
 
+  view.clickPanel.hidden = voice.voiceType !== "perc";
+  view.envelopePanel.hidden = voice.voiceType !== "perc";
   view.clickSlider?.setValues(voice.clickShape);
   view.ampsSlider?.setValues(voice.amps);
   view.envelopeEditor?.setPoints(voice.noiseEnvelope.points);
@@ -697,7 +753,7 @@ function setActiveVoice(voiceId, options = {}) {
   }
 
   if (syncAnalysis) {
-    renderActiveVoiceAnalysis(engine.lastModalDataByVoice);
+    renderActiveVoiceAnalysis(engine.lastAnalysisByVoice);
   }
 
   if (activeChanged) {
@@ -748,6 +804,52 @@ function replaceVoiceWithPreset(voiceId, presetId) {
   setStatus(`${preset.name} auf Voice ${voiceIndex + 1} geladen.`);
 }
 
+function switchVoiceType(voiceId, nextVoiceType) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const view = voiceViews.get(voiceId);
+
+  if (!voice || voiceIndex === -1 || !view) {
+    return;
+  }
+
+  if (voice.voiceType === nextVoiceType) {
+    return;
+  }
+
+  voice.voiceType = nextVoiceType === "kick" ? "kick" : "perc";
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll({ resetVoiceIds: [voiceId] });
+  setStatus(`Voice ${voiceIndex + 1} auf ${voice.voiceType === "kick" ? "Kick" : "Perc"} umgestellt.`);
+}
+
+function randomizePercVoiceState(voice) {
+  getVoiceScalarDefinitions("perc")
+    .filter((definition) => definition.key !== "masterGain")
+    .forEach((definition) => {
+      voice[definition.key] = randomizeScalarValue(definition);
+    });
+
+  voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
+  voice.amps = Array.from({ length: voice.amps.length }, () => Math.random());
+  voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
+}
+
+function randomizeKickVoiceState(voice) {
+  voice.kickBodyFreqHz = randomInRange(38, 72, 0.1);
+  voice.kickBodyDecayMs = randomInRange(160, 620, 1);
+  voice.kickPitchDropSt = randomInRange(6, 16, 0.1);
+  voice.kickPitchDropMs = randomInRange(22, 80, 1);
+  voice.kickClickLevel = randomInRange(0.05, 0.34, 0.001);
+  voice.kickClickDecayMs = randomInRange(4, 22, 0.1);
+  voice.kickNoiseLevel = randomInRange(0, 0.18, 0.001);
+  voice.kickNoiseDecayMs = randomInRange(10, 70, 0.1);
+  voice.kickDrive = randomInRange(0.04, 0.32, 0.001);
+  voice.kickTone = randomInRange(0.35, 0.92, 0.001);
+  voice.amps = createRandomKickAmpPattern(voice.amps.length);
+}
+
 function randomizeVoice(voiceId) {
   const voice = getVoiceById(voiceId);
   const voiceIndex = getVoiceIndexById(voiceId);
@@ -757,20 +859,16 @@ function randomizeVoice(voiceId) {
     return;
   }
 
-  voiceScalarDefinitions
-    .filter((definition) => definition.key !== "masterGain")
-    .forEach((definition) => {
-      voice[definition.key] = randomizeScalarValue(definition);
-    });
-
-  voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
-  voice.amps = Array.from({ length: voice.amps.length }, () => Math.random());
-  voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
+  if (voice.voiceType === "kick") {
+    randomizeKickVoiceState(voice);
+  } else {
+    randomizePercVoiceState(voice);
+  }
 
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId] });
-  setStatus(`Voice ${voiceIndex + 1} randomisiert.`);
+  setStatus(`${voice.voiceType === "kick" ? "Kick" : "Voice"} ${voiceIndex + 1} randomisiert.`);
 }
 
 async function saveVoiceAsUserPreset(voiceId) {
@@ -944,6 +1042,18 @@ function describeVoiceState(voice) {
     return "Muted. Clock bleibt synchron, Output ist still.";
   }
 
+  if (voice.voiceType === "kick") {
+    if (voice.presetSource === "user") {
+      return "Kick-Voice aus User Preset. Randomize erzeugt neue Kick-Varianten mit gleichem Step-Workflow.";
+    }
+
+    if (voice.presetSource === "detached") {
+      return "Lokale Kick-Voice. Body, Pitch Drop und Attack bleiben beim Umschalten erhalten.";
+    }
+
+    return "Kick-Voice aktiv. Typ-Switch blendet die Perc-Editoren aus, das Step-Pattern bleibt gemeinsam.";
+  }
+
   if (voice.presetSource === "user") {
     return "Lokales User Preset. Speichern legt eine neue Variante an, Update ueberschreibt das aktive Preset.";
   }
@@ -956,18 +1066,18 @@ function describeVoiceState(voice) {
 }
 
 function syncAll(options = {}) {
-  const modalDataByVoice = engine.sync(appState, options);
-  renderActiveVoiceAnalysis(modalDataByVoice);
+  const analysisByVoice = engine.sync(appState, options);
+  renderActiveVoiceAnalysis(analysisByVoice);
   analyserBuffer = engine.analyser ? new Float32Array(engine.analyser.fftSize) : analyserBuffer;
   persistSession();
 }
 
-function renderActiveVoiceAnalysis(modalDataByVoice = []) {
+function renderActiveVoiceAnalysis(analysisByVoice = []) {
   const activeVoice = getActiveVoice();
   const activeVoiceIndex = activeVoice ? getVoiceIndexById(activeVoice.voiceId) : -1;
-  const modalData = activeVoiceIndex >= 0 ? modalDataByVoice[activeVoiceIndex] : null;
+  const analysis = activeVoiceIndex >= 0 ? analysisByVoice[activeVoiceIndex] : null;
 
-  if (!activeVoice || !modalData) {
+  if (!activeVoice || !analysis) {
     drawBars(elements.freqCanvas, [0], { color: "#f0b075", baseline: 0 });
     drawBars(elements.weightCanvas, [0], { color: "#6ab1c7", baseline: 0, maxValue: 1 });
     elements.analysisVoiceLabel.textContent = "Keine Voice gewaehlt";
@@ -976,11 +1086,19 @@ function renderActiveVoiceAnalysis(modalDataByVoice = []) {
     return;
   }
 
-  drawBars(elements.freqCanvas, modalData.frequencies, { color: "#f0b075", baseline: 0 });
-  drawBars(elements.weightCanvas, modalData.weights, { color: "#6ab1c7", baseline: 0, maxValue: 1 });
-  elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${activeVoice.presetName}`;
-  elements.freqSummary.textContent = summarizeFrequencies(modalData.frequencies);
-  elements.weightSummary.textContent = summarizeWeights(modalData.weights);
+  drawBars(elements.freqCanvas, analysis.frequencies, { color: "#f0b075", baseline: 0 });
+  drawBars(elements.weightCanvas, analysis.weights, { color: "#6ab1c7", baseline: 0, maxValue: 1 });
+  elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${activeVoice.presetName} · ${activeVoice.voiceType}`;
+
+  if (analysis.type === "kick") {
+    elements.freqSummary.textContent = `Body ${activeVoice.kickBodyFreqHz.toFixed(1)} Hz · Peak ${analysis.frequencies[1].toFixed(1)} Hz`;
+    elements.weightSummary.textContent =
+      `Click ${activeVoice.kickClickLevel.toFixed(2)} · Noise ${activeVoice.kickNoiseLevel.toFixed(2)} · Drive ${activeVoice.kickDrive.toFixed(2)}`;
+    return;
+  }
+
+  elements.freqSummary.textContent = summarizeFrequencies(analysis.frequencies);
+  elements.weightSummary.textContent = summarizeWeights(analysis.weights);
 }
 
 function renderScopeLoop() {
@@ -1161,6 +1279,22 @@ function createRandomNoiseEnvelopePoints() {
       curve: randomInRange(-1, 1, 0.001),
     },
   ];
+}
+
+function createRandomKickAmpPattern(length) {
+  return Array.from({ length }, (_, index) => {
+    const lane = index % 4;
+
+    if (lane === 0) {
+      return randomInRange(0.72, 1, 0.001);
+    }
+
+    if (lane === 2) {
+      return Math.random() < 0.45 ? randomInRange(0.12, 0.42, 0.001) : 0;
+    }
+
+    return Math.random() < 0.18 ? randomInRange(0.08, 0.24, 0.001) : 0;
+  });
 }
 
 function randomInRange(min, max, step = null) {
