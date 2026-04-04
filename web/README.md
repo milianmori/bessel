@@ -37,6 +37,7 @@ npm run dev -- --host 0.0.0.0
 - BPM-Randomize-Button direkt im Header
 - `+ Voice` klont die aktive Voice inklusive aller lokalen Parameter
 - Pro Voice eigene Preset-Auswahl, Randomize, Mute und Editoren
+- Pro Voice umschaltbare Step-Pattern-Quelle mit `Amp`-Modi und Max-inspirierten `Rhythm`-Konzepten wie `3-3-2` und `Euclid`
 - Pro Voice ist `Master Gain` manuell steuerbar und wird von `Randomize` nicht veraendert
 - Eigene User-Presets werden beim ersten Save in eine Markdown-Datei geschrieben und danach darueber aktualisiert
 - Letzte Session wird lokal wiederhergestellt, damit Debug- und Recall-Staende nach Reload erhalten bleiben

@@ -5,6 +5,17 @@ import {
   summarizeFrequencies,
   summarizeWeights,
 } from "./model.js";
+import {
+  AMP_MODE_OPTIONS,
+  AMP_PATTERN_SOURCE_OPTIONS,
+  RHYTHM_MODE_OPTIONS,
+  createAmpPattern,
+  describePatternSelection,
+  normalizeAmpMode,
+  normalizeAmpPatternSource,
+  normalizeRhythmMode,
+  shouldUseRhythmPattern,
+} from "./amp-patterns.js";
 import { BesselAudioEngine } from "./audio-engine.js";
 import { MultiSlider } from "./ui/multislider.js";
 import { EnvelopeEditor } from "./ui/envelope-editor.js";
@@ -367,8 +378,25 @@ function createVoiceCardShell(voice, index) {
             <p class="eyebrow">Step Pattern</p>
             <h3>Amp Multislider</h3>
           </div>
-          <p class="panel-note">16 Trigger-Staerken, synchron zur globalen Clock.</p>
+          <div class="button-row">
+            <button type="button" class="ghost voice-pattern-refresh-button">Pattern neu</button>
+          </div>
         </div>
+        <div class="controls-grid voice-pattern-controls">
+          <label class="control">
+            <span>Source</span>
+            <select class="voice-pattern-source-select"></select>
+          </label>
+          <label class="control">
+            <span>Amp Mode</span>
+            <select class="voice-amp-mode-select"></select>
+          </label>
+          <label class="control">
+            <span>Rhythm</span>
+            <select class="voice-rhythm-mode-select"></select>
+          </label>
+        </div>
+        <p class="panel-note">16 Trigger-Staerken pro Voice. Moduswechsel zieht sofort ein neues Pattern, danach bleibt der Multislider frei editierbar.</p>
         <canvas class="editor-canvas compact-editor-canvas voice-amps-canvas" width="960" height="220"></canvas>
       </section>
     </div>
@@ -395,6 +423,10 @@ function createVoiceCardShell(voice, index) {
     clickCanvas: root.querySelector(".voice-click-canvas"),
     envelopeCanvas: root.querySelector(".voice-envelope-canvas"),
     ampsCanvas: root.querySelector(".voice-amps-canvas"),
+    patternRefreshButton: root.querySelector(".voice-pattern-refresh-button"),
+    patternSourceSelect: root.querySelector(".voice-pattern-source-select"),
+    ampModeSelect: root.querySelector(".voice-amp-mode-select"),
+    rhythmModeSelect: root.querySelector(".voice-rhythm-mode-select"),
     addPointButton: root.querySelector(".voice-add-point-button"),
     removePointButton: root.querySelector(".voice-remove-point-button"),
     segmentCurve: root.querySelector(".voice-segment-curve"),
@@ -410,6 +442,9 @@ function createVoiceCardShell(voice, index) {
 
 function initializeVoiceCard(view, voiceId, index) {
   populateVoicePresetSelect(view.presetSelect, getVoiceById(voiceId));
+  populateSelectWithOptions(view.patternSourceSelect, AMP_PATTERN_SOURCE_OPTIONS);
+  populateSelectWithOptions(view.ampModeSelect, AMP_MODE_OPTIONS);
+  populateSelectWithOptions(view.rhythmModeSelect, RHYTHM_MODE_OPTIONS);
   rebuildVoiceScalarControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
 
   view.clickSlider = new MultiSlider({
@@ -494,6 +529,32 @@ function initializeVoiceCard(view, voiceId, index) {
   view.typeSelect.addEventListener("change", (event) => {
     event.stopPropagation();
     switchVoiceType(voiceId, view.typeSelect.value);
+  });
+
+  view.patternRefreshButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    regenerateVoicePattern(voiceId);
+  });
+
+  view.patternSourceSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    updateVoicePatternSelection(voiceId, {
+      ampPatternSource: Number(view.patternSourceSelect.value),
+    });
+  });
+
+  view.ampModeSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    updateVoicePatternSelection(voiceId, {
+      ampMode: Number(view.ampModeSelect.value),
+    });
+  });
+
+  view.rhythmModeSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    updateVoicePatternSelection(voiceId, {
+      rhythmMode: Number(view.rhythmModeSelect.value),
+    });
   });
 
   if (view.removeButton) {
@@ -626,6 +687,17 @@ function appendPresetGroup(select, label, presetList) {
   select.append(group);
 }
 
+function populateSelectWithOptions(select, options) {
+  select.textContent = "";
+
+  options.forEach((option) => {
+    const element = document.createElement("option");
+    element.value = String(option.value);
+    element.textContent = option.label;
+    select.append(element);
+  });
+}
+
 function getVoiceScalarDefinitions(voiceType) {
   return voiceType === "kick" ? kickVoiceScalarDefinitions : percVoiceScalarDefinitions;
 }
@@ -702,6 +774,7 @@ function refreshVoiceView(view) {
   view.deletePresetButton.disabled =
     !(voice.presetSource === "user" && findUserPresetById(voice.presetId)) ||
     isUserPresetInUseByOtherVoice(voice.presetId, voice.voiceId);
+  refreshVoicePatternControls(view, voice);
 
   getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
     const input = view.controlInputs.get(definition.key);
@@ -721,6 +794,18 @@ function refreshVoiceView(view) {
   view.ampsSlider?.setValues(voice.amps);
   view.envelopeEditor?.setPoints(voice.noiseEnvelope.points);
   updateVoiceCurveControl(view);
+}
+
+function refreshVoicePatternControls(view, voice) {
+  view.patternSourceSelect.value = String(voice.ampPatternSource);
+  view.ampModeSelect.value = String(voice.ampMode);
+  view.rhythmModeSelect.value = String(voice.rhythmMode);
+
+  const rhythmSourceActive = normalizeAmpPatternSource(voice.ampPatternSource) === 0;
+  const rhythmPatternActive = shouldUseRhythmPattern(voice.ampPatternSource, voice.rhythmMode);
+
+  view.rhythmModeSelect.disabled = !rhythmSourceActive;
+  view.ampModeSelect.disabled = rhythmPatternActive;
 }
 
 function updateVoiceCurveControl(view) {
@@ -824,6 +909,58 @@ function switchVoiceType(voiceId, nextVoiceType) {
   setStatus(`Voice ${voiceIndex + 1} auf ${voice.voiceType === "kick" ? "Kick" : "Perc"} umgestellt.`);
 }
 
+function buildAmpPatternForVoice(voice) {
+  return createAmpPattern(voice.amps.length, {
+    ampPatternSource: voice.ampPatternSource,
+    ampMode: voice.ampMode,
+    rhythmMode: voice.rhythmMode,
+  });
+}
+
+function updateVoicePatternSelection(voiceId, nextSettings = {}) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const view = voiceViews.get(voiceId);
+
+  if (!voice || voiceIndex === -1 || !view) {
+    return;
+  }
+
+  if (Object.hasOwn(nextSettings, "ampPatternSource")) {
+    voice.ampPatternSource = normalizeAmpPatternSource(nextSettings.ampPatternSource);
+  }
+
+  if (Object.hasOwn(nextSettings, "ampMode")) {
+    voice.ampMode = normalizeAmpMode(nextSettings.ampMode);
+  }
+
+  if (Object.hasOwn(nextSettings, "rhythmMode")) {
+    voice.rhythmMode = normalizeRhythmMode(nextSettings.rhythmMode);
+  }
+
+  voice.amps = buildAmpPatternForVoice(voice);
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll();
+  setStatus(`Voice ${voiceIndex + 1} Pattern: ${describePatternSelection(voice)}.`);
+}
+
+function regenerateVoicePattern(voiceId) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const view = voiceViews.get(voiceId);
+
+  if (!voice || voiceIndex === -1 || !view) {
+    return;
+  }
+
+  voice.amps = buildAmpPatternForVoice(voice);
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll();
+  setStatus(`Voice ${voiceIndex + 1} Step-Pattern neu gezogen: ${describePatternSelection(voice)}.`);
+}
+
 function randomizePercVoiceState(voice) {
   getVoiceScalarDefinitions("perc")
     .filter((definition) => definition.key !== "masterGain")
@@ -832,7 +969,7 @@ function randomizePercVoiceState(voice) {
     });
 
   voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
-  voice.amps = Array.from({ length: voice.amps.length }, () => Math.random());
+  voice.amps = buildAmpPatternForVoice(voice);
   voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
 }
 
@@ -847,7 +984,7 @@ function randomizeKickVoiceState(voice) {
   voice.kickNoiseDecayMs = randomInRange(10, 70, 0.1);
   voice.kickDrive = randomInRange(0.04, 0.32, 0.001);
   voice.kickTone = randomInRange(0.35, 0.92, 0.001);
-  voice.amps = createRandomKickAmpPattern(voice.amps.length);
+  voice.amps = buildAmpPatternForVoice(voice);
 }
 
 function randomizeVoice(voiceId) {
@@ -868,7 +1005,9 @@ function randomizeVoice(voiceId) {
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId] });
-  setStatus(`${voice.voiceType === "kick" ? "Kick" : "Voice"} ${voiceIndex + 1} randomisiert.`);
+  setStatus(
+    `${voice.voiceType === "kick" ? "Kick" : "Voice"} ${voiceIndex + 1} randomisiert. Pattern: ${describePatternSelection(voice)}.`,
+  );
 }
 
 async function saveVoiceAsUserPreset(voiceId) {
@@ -1038,31 +1177,33 @@ function normalizePresetName(value, fallback) {
 }
 
 function describeVoiceState(voice) {
+  const patternInfo = `Pattern: ${describePatternSelection(voice)}.`;
+
   if (voice.muted) {
-    return "Muted. Clock bleibt synchron, Output ist still.";
+    return `Muted. Clock bleibt synchron, Output ist still. ${patternInfo}`;
   }
 
   if (voice.voiceType === "kick") {
     if (voice.presetSource === "user") {
-      return "Kick-Voice aus User Preset. Randomize erzeugt neue Kick-Varianten mit gleichem Step-Workflow.";
+      return `Kick-Voice aus User Preset. Randomize erzeugt neue Kick-Varianten mit gleichem Step-Workflow. ${patternInfo}`;
     }
 
     if (voice.presetSource === "detached") {
-      return "Lokale Kick-Voice. Body, Pitch Drop und Attack bleiben beim Umschalten erhalten.";
+      return `Lokale Kick-Voice. Body, Pitch Drop und Attack bleiben beim Umschalten erhalten. ${patternInfo}`;
     }
 
-    return "Kick-Voice aktiv. Typ-Switch blendet die Perc-Editoren aus, das Step-Pattern bleibt gemeinsam.";
+    return `Kick-Voice aktiv. Typ-Switch blendet die Perc-Editoren aus, das Step-Pattern bleibt gemeinsam. ${patternInfo}`;
   }
 
   if (voice.presetSource === "user") {
-    return "Lokales User Preset. Speichern legt eine neue Variante an, Update ueberschreibt das aktive Preset.";
+    return `Lokales User Preset. Speichern legt eine neue Variante an, Update ueberschreibt das aktive Preset. ${patternInfo}`;
   }
 
   if (voice.presetSource === "detached") {
-    return "Lokaler Session-Stand. Noch nicht als eigenes Preset gespeichert.";
+    return `Lokaler Session-Stand. Noch nicht als eigenes Preset gespeichert. ${patternInfo}`;
   }
 
-  return "Factory Preset als Ausgangspunkt, gemeinsames BPM.";
+  return `Factory Preset als Ausgangspunkt, gemeinsames BPM. ${patternInfo}`;
 }
 
 function syncAll(options = {}) {
@@ -1279,22 +1420,6 @@ function createRandomNoiseEnvelopePoints() {
       curve: randomInRange(-1, 1, 0.001),
     },
   ];
-}
-
-function createRandomKickAmpPattern(length) {
-  return Array.from({ length }, (_, index) => {
-    const lane = index % 4;
-
-    if (lane === 0) {
-      return randomInRange(0.72, 1, 0.001);
-    }
-
-    if (lane === 2) {
-      return Math.random() < 0.45 ? randomInRange(0.12, 0.42, 0.001) : 0;
-    }
-
-    return Math.random() < 0.18 ? randomInRange(0.08, 0.24, 0.001) : 0;
-  });
 }
 
 function randomInRange(min, max, step = null) {

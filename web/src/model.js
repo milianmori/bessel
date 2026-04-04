@@ -1,3 +1,9 @@
+import {
+  normalizeAmpMode,
+  normalizeAmpPatternSource,
+  normalizeRhythmMode,
+} from "./amp-patterns.js";
+
 const ROOTS = [
   [2.4048, 5.5201, 8.6537, 11.7915],
   [3.8317, 7.0156, 10.1735, 13.3237],
@@ -374,6 +380,9 @@ function ensureLength(values, length, fallback) {
 function normalizeVoicePayload(raw = {}) {
   return {
     voiceType: normalizeVoiceType(raw.voiceType ?? raw.voice_type),
+    ampPatternSource: normalizeAmpPatternSource(raw.ampPatternSource ?? raw.amp_pattern_source),
+    ampMode: normalizeAmpMode(raw.ampMode ?? raw.amp_mode),
+    rhythmMode: normalizeRhythmMode(raw.rhythmMode ?? raw.legacyRhythm ?? raw.legacy_rhythm ?? raw.rhythm),
     tuning: readScalar(raw.tuning, DEFAULT_PRESET_VALUES.tuning),
     size: clamp(readScalar(raw.size, DEFAULT_PRESET_VALUES.size), 0.05, 1),
     hitPosition: clamp(readScalar(raw.hitPosition ?? raw.hit_pos, DEFAULT_PRESET_VALUES.hitPosition), 0, 1),
@@ -431,6 +440,9 @@ function serializeVoicePayload(raw = {}) {
 
   return {
     voiceType: normalizedState.voiceType,
+    ampPatternSource: normalizedState.ampPatternSource,
+    ampMode: normalizedState.ampMode,
+    rhythmMode: normalizedState.rhythmMode,
     tuning: normalizedState.tuning,
     size: normalizedState.size,
     hitPosition: normalizedState.hitPosition,

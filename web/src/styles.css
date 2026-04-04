@@ -243,6 +243,11 @@ h3 {
   cursor: not-allowed;
 }
 
+.control select:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .control input[type="text"] {
   width: 100%;
   border-radius: 999px;
@@ -350,6 +355,10 @@ select {
   grid-column: 1 / -1;
   text-align: left;
   font-size: 0.88rem;
+}
+
+.voice-pattern-controls {
+  margin-top: 0.1rem;
 }
 
 .voice-card-grid {
