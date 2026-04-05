@@ -115,6 +115,8 @@ export class BesselAudioEngine {
 }
 
 function buildProcessorConfig(state, analysisByVoice, options) {
+  const soloActive = state.voices.some((voice) => Boolean(voice.solo));
+
   return {
     running: state.running,
     tempo: state.tempo,
@@ -126,7 +128,7 @@ function buildProcessorConfig(state, analysisByVoice, options) {
       const baseConfig = {
         voiceId: voice.voiceId,
         voiceType: voice.voiceType,
-        muted: Boolean(voice.muted),
+        muted: isVoiceEffectivelyMuted(voice, soloActive),
         masterGain: voice.masterGain,
         amps: [...voice.amps],
       };
@@ -173,6 +175,18 @@ function buildProcessorConfig(state, analysisByVoice, options) {
       };
     }),
   };
+}
+
+function isVoiceEffectivelyMuted(voice, soloActive) {
+  if (voice.muted) {
+    return true;
+  }
+
+  if (soloActive && !voice.solo) {
+    return true;
+  }
+
+  return false;
 }
 
 function buildMasterBusConfig(state) {

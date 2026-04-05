@@ -48,6 +48,7 @@ const elements = {
   tempoOutput: document.querySelector("#tempo-output"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
+  headerVoiceList: document.querySelector("#header-voice-list"),
   voiceList: document.querySelector("#voice-list"),
   masterBusModeSelect: document.querySelector("#master-bus-mode-select"),
   masterBusModeNote: document.querySelector("#master-bus-mode-note"),
@@ -197,6 +198,7 @@ let factoryPresets = [];
 let userPresets = [];
 let appState = null;
 let voiceViews = new Map();
+let headerVoiceViews = new Map();
 let analyserBuffer = null;
 let nextVoiceId = 1;
 let masterMeterOutputs = new Map();
@@ -275,13 +277,15 @@ function createVoiceFromState(state, overrides = {}) {
   voice.presetId = overrides.presetId ?? null;
   voice.presetName = overrides.presetName ?? voice.presetName;
   voice.presetSource = overrides.presetSource ?? voice.presetSource ?? "detached";
-  voice.muted = overrides.muted ?? false;
+  voice.muted = overrides.muted ?? Boolean(voice.muted);
+  voice.solo = overrides.solo ?? Boolean(voice.solo);
   return voice;
 }
 
 function createVoiceClone(sourceVoice) {
   return createVoiceFromState(sourceVoice, {
     muted: false,
+    solo: false,
     presetId: sourceVoice.presetId,
     presetName: sourceVoice.presetName,
     presetSource: sourceVoice.presetSource,
@@ -348,6 +352,7 @@ function buildInitialAppState() {
       presetName: "Layer Stack",
       presetSource: "detached",
       muted: false,
+      solo: false,
     },
   );
 
@@ -411,6 +416,42 @@ function getVoiceIndexById(voiceId) {
 
 function getActiveVoice() {
   return getVoiceById(appState.activeVoiceId) ?? appState.voices[0] ?? null;
+}
+
+function hasSoloVoices() {
+  return appState?.voices.some((voice) => voice.solo) ?? false;
+}
+
+function isVoiceAudible(voice) {
+  if (!voice) {
+    return false;
+  }
+
+  if (voice.muted) {
+    return false;
+  }
+
+  return !hasSoloVoices() || Boolean(voice.solo);
+}
+
+function getVoicePlaybackStateLabel(voice) {
+  if (voice.muted && voice.solo) {
+    return "Muted + Solo";
+  }
+
+  if (voice.muted) {
+    return "Muted";
+  }
+
+  if (hasSoloVoices() && !voice.solo) {
+    return "Solo-Bypass";
+  }
+
+  if (voice.solo) {
+    return "Solo";
+  }
+
+  return "Aktiv";
 }
 
 function buildMasterBusControls() {
@@ -812,6 +853,7 @@ function randomizeTempo() {
 }
 
 function renderVoiceCards() {
+  renderHeaderVoiceControls();
   voiceViews.forEach((view) => destroyVoiceView(view));
   voiceViews.clear();
   elements.voiceList.textContent = "";
@@ -826,6 +868,90 @@ function renderVoiceCards() {
 
   refreshActiveVoiceStyles();
   refreshGlobalPresetControls();
+}
+
+function renderHeaderVoiceControls() {
+  headerVoiceViews.clear();
+  elements.headerVoiceList.textContent = "";
+
+  appState.voices.forEach((voice) => {
+    const root = document.createElement("div");
+    root.className = "header-voice-chip";
+    root.dataset.voiceId = String(voice.voiceId);
+
+    const focusButton = document.createElement("button");
+    focusButton.type = "button";
+    focusButton.className = "header-voice-focus";
+
+    const toggleGroup = document.createElement("div");
+    toggleGroup.className = "header-voice-toggle-group";
+
+    const muteButton = document.createElement("button");
+    muteButton.type = "button";
+    muteButton.className = "ghost header-voice-toggle header-voice-mute-toggle";
+    muteButton.textContent = "M";
+
+    const soloButton = document.createElement("button");
+    soloButton.type = "button";
+    soloButton.className = "ghost header-voice-toggle header-voice-solo-toggle";
+    soloButton.textContent = "S";
+
+    toggleGroup.append(muteButton, soloButton);
+    root.append(focusButton, toggleGroup);
+    elements.headerVoiceList.append(root);
+
+    const view = { root, focusButton, muteButton, soloButton };
+    headerVoiceViews.set(voice.voiceId, view);
+
+    focusButton.addEventListener("click", () => {
+      setActiveVoice(voice.voiceId);
+    });
+
+    muteButton.addEventListener("click", () => {
+      toggleVoiceMute(voice.voiceId);
+    });
+
+    soloButton.addEventListener("click", () => {
+      toggleVoiceSolo(voice.voiceId);
+    });
+
+    refreshHeaderVoiceControl(view);
+  });
+}
+
+function refreshHeaderVoiceControl(view) {
+  const voiceId = Number(view.root.dataset.voiceId);
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+
+  if (!voice || voiceIndex === -1) {
+    return;
+  }
+
+  const isActive = appState.activeVoiceId === voiceId;
+  const soloActive = hasSoloVoices();
+
+  view.focusButton.textContent = `V${voiceIndex + 1} ${getVoiceCompactLabel(voice.voiceType)}`;
+  view.focusButton.title = `Voice ${voiceIndex + 1} fokussieren`;
+  view.focusButton.classList.toggle("is-active", isActive);
+  view.muteButton.classList.toggle("is-on", voice.muted);
+  view.soloButton.classList.toggle("is-on", voice.solo);
+  view.muteButton.setAttribute("aria-pressed", String(voice.muted));
+  view.soloButton.setAttribute("aria-pressed", String(voice.solo));
+  view.muteButton.title = voice.muted ? `Voice ${voiceIndex + 1} entmuten` : `Voice ${voiceIndex + 1} muten`;
+  view.soloButton.title = voice.solo ? `Solo fuer Voice ${voiceIndex + 1} aus` : `Voice ${voiceIndex + 1} solo`;
+  view.root.classList.toggle("is-active", isActive);
+  view.root.classList.toggle("is-muted", voice.muted);
+  view.root.classList.toggle("is-solo", voice.solo);
+  view.root.classList.toggle("is-suppressed", soloActive && !voice.solo);
+  view.root.classList.toggle("is-audible", isVoiceAudible(voice));
+  view.root.title = `${getVoicePlaybackStateLabel(voice)} · ${getVoiceTypeLabel(voice.voiceType)}`;
+}
+
+function refreshHeaderVoiceControls() {
+  headerVoiceViews.forEach((view) => {
+    refreshHeaderVoiceControl(view);
+  });
 }
 
 function createVoiceCardShell(voice, index) {
@@ -1028,16 +1154,7 @@ function initializeVoiceCard(view, voiceId, index) {
 
   view.muteButton.addEventListener("click", (event) => {
     event.stopPropagation();
-    const voice = getVoiceById(voiceId);
-
-    if (!voice) {
-      return;
-    }
-
-    voice.muted = !voice.muted;
-    refreshVoiceView(view);
-    syncAll();
-    setStatus(`Voice ${index + 1} ${voice.muted ? "stumm" : "aktiv"}.`);
+    toggleVoiceMute(voiceId);
   });
 
   view.typeSelect.addEventListener("change", (event) => {
@@ -1274,6 +1391,14 @@ function getVoiceLayerLabel(voiceType) {
   return `${getVoiceTypeLabel(voiceType)} Layer`;
 }
 
+function getVoiceCompactLabel(voiceType) {
+  if (voiceType === "subbass") {
+    return "Sub";
+  }
+
+  return getVoiceTypeLabel(voiceType);
+}
+
 function getVoiceMacroLabel(voiceType) {
   if (voiceType === "perc") {
     return "Voice Settings";
@@ -1374,6 +1499,10 @@ function refreshVoiceView(view) {
   view.stateLine.textContent = describeVoiceState(voice);
   view.randomButton.textContent = getVoiceRandomButtonLabel(voice.voiceType);
   view.muteButton.textContent = voice.muted ? "An" : "Stumm";
+  view.muteButton.setAttribute("aria-pressed", String(voice.muted));
+  view.root.classList.toggle("is-muted", voice.muted);
+  view.root.classList.toggle("is-solo", voice.solo);
+  view.root.classList.toggle("is-suppressed", hasSoloVoices() && !voice.solo);
   refreshVoicePatternControls(view, voice);
 
   getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
@@ -1416,6 +1545,8 @@ function refreshActiveVoiceStyles() {
     view.root.classList.toggle("is-active", isActive);
     view.focusButton.textContent = isActive ? "Im Fokus" : "Fokus";
   });
+
+  refreshHeaderVoiceControls();
 }
 
 function setActiveVoice(voiceId, options = {}) {
@@ -1815,6 +1946,7 @@ function refreshAllVoiceViews() {
     refreshVoiceView(view);
   });
 
+  refreshHeaderVoiceControls();
   refreshGlobalPresetControls();
 }
 
@@ -1859,13 +1991,67 @@ function describePresetState(currentPreset) {
 }
 
 function describeVoiceState(voice) {
-  const stateLabel = voice.muted ? "Muted" : "Aktiv";
+  const stateLabel = getVoicePlaybackStateLabel(voice);
   const sourceLabel =
     voice.presetSource === "detached"
       ? "lokal"
       : `${voice.presetSource === "user" ? "user" : "factory"}:${voice.presetName}`;
 
   return `${stateLabel} · ${getVoiceTypeLabel(voice.voiceType)} · ${sourceLabel} · ${describePatternSelection(voice)}`;
+}
+
+function toggleVoiceMute(voiceId) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+
+  if (!voice || voiceIndex === -1) {
+    return;
+  }
+
+  voice.muted = !voice.muted;
+  refreshVoicePresentation(voiceId);
+  syncAll();
+  setStatus(`Voice ${voiceIndex + 1} ${voice.muted ? "stumm" : "aktiv"}.`);
+}
+
+function toggleVoiceSolo(voiceId) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+
+  if (!voice || voiceIndex === -1) {
+    return;
+  }
+
+  voice.solo = !voice.solo;
+  refreshAllVoiceViews();
+  syncAll();
+
+  const soloCount = appState.voices.filter((entry) => entry.solo).length;
+  const soloVoiceLabel = `${soloCount} Solo-Voice${soloCount === 1 ? "" : "s"}`;
+
+  if (voice.solo) {
+    setStatus(`Voice ${voiceIndex + 1} solo. ${soloVoiceLabel} aktiv.`);
+    return;
+  }
+
+  setStatus(
+    soloCount
+      ? `Voice ${voiceIndex + 1} Solo aus. ${soloVoiceLabel} bleiben aktiv.`
+      : `Voice ${voiceIndex + 1} Solo aus. Alle Voices wieder offen.`,
+  );
+}
+
+function refreshVoicePresentation(voiceId) {
+  const view = voiceViews.get(voiceId);
+  const headerView = headerVoiceViews.get(voiceId);
+
+  if (view) {
+    refreshVoiceView(view);
+  }
+
+  if (headerView) {
+    refreshHeaderVoiceControl(headerView);
+  }
 }
 
 function syncAll(options = {}) {

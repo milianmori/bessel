@@ -186,6 +186,7 @@ export function restoreVoiceState(raw) {
     presetName: sanitizeName(raw.presetName, "Session Voice"),
     presetSource: normalizePresetSource(raw.presetSource),
     muted: Boolean(raw.muted),
+    solo: Boolean(raw.solo),
   };
 }
 
@@ -228,6 +229,7 @@ export function serializeVoiceState(voice) {
     presetName: restoredVoice?.presetName ?? "Session Voice",
     presetSource: restoredVoice?.presetSource ?? "factory",
     muted: Boolean(restoredVoice?.muted),
+    solo: Boolean(restoredVoice?.solo),
     ...serializeVoicePayload(restoredVoice ?? {}),
   };
 }
