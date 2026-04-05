@@ -143,6 +143,13 @@ function createVoiceRuntime(config) {
     kickNoiseDecayMs: 36,
     kickDrive: 0.14,
     kickTone: 0.58,
+    subBassFreqHz: 43,
+    subBassAttackMs: 6,
+    subBassDecayMs: 520,
+    subBassWaveMix: 0.2,
+    subBassSubLevel: 0.66,
+    subBassDrive: 0.12,
+    subBassTone: 0.34,
     clickShape: new Float32Array(64).fill(0.4),
     amps: new Float32Array(16).fill(0.65),
     frequencies: Float32Array.from(frequencies),
@@ -172,6 +179,13 @@ function createVoiceRuntime(config) {
     kickNoiseTotal: 1,
     kickPhase: 0,
     kickToneState: 0,
+    subBassAmplitude: 0,
+    subBassAttackRemaining: 0,
+    subBassAttackTotal: 1,
+    subBassDecayRemaining: 0,
+    subBassDecayTotal: 1,
+    subBassPhase: 0,
+    subBassToneState: 0,
   };
 }
 
@@ -240,6 +254,34 @@ function applyVoiceConfig(voice, config) {
     voice.kickTone = clamp(config.kickTone, 0, 1);
   }
 
+  if (typeof config.subBassFreqHz === "number") {
+    voice.subBassFreqHz = clamp(config.subBassFreqHz, 28, 90);
+  }
+
+  if (typeof config.subBassAttackMs === "number") {
+    voice.subBassAttackMs = clamp(config.subBassAttackMs, 0, 120);
+  }
+
+  if (typeof config.subBassDecayMs === "number") {
+    voice.subBassDecayMs = clamp(config.subBassDecayMs, 80, 2400);
+  }
+
+  if (typeof config.subBassWaveMix === "number") {
+    voice.subBassWaveMix = clamp(config.subBassWaveMix, 0, 1);
+  }
+
+  if (typeof config.subBassSubLevel === "number") {
+    voice.subBassSubLevel = clamp(config.subBassSubLevel, 0, 1);
+  }
+
+  if (typeof config.subBassDrive === "number") {
+    voice.subBassDrive = clamp(config.subBassDrive, 0, 1);
+  }
+
+  if (typeof config.subBassTone === "number") {
+    voice.subBassTone = clamp(config.subBassTone, 0, 1);
+  }
+
   if (Array.isArray(config.clickShape)) {
     voice.clickShape = Float32Array.from(config.clickShape);
     voice.clickIndex = Math.min(voice.clickIndex, voice.clickShape.length);
@@ -300,6 +342,13 @@ function resetVoiceState(voice, clearModes) {
   voice.kickNoiseTotal = 1;
   voice.kickPhase = 0;
   voice.kickToneState = 0;
+  voice.subBassAmplitude = 0;
+  voice.subBassAttackRemaining = 0;
+  voice.subBassAttackTotal = 1;
+  voice.subBassDecayRemaining = 0;
+  voice.subBassDecayTotal = 1;
+  voice.subBassPhase = 0;
+  voice.subBassToneState = 0;
 
   if (clearModes) {
     voice.modeStates = voice.modeStates.map(() => ({ d1: 0, d2: 0 }));
@@ -328,6 +377,20 @@ function triggerVoiceStep(voice, stepIndex) {
     return amp;
   }
 
+  if (voice.voiceType === "subbass") {
+    if (amp <= 0) {
+      return 0;
+    }
+
+    voice.subBassAmplitude = amp;
+    voice.subBassPhase = 0;
+    voice.subBassAttackTotal = Math.max(1, (voice.subBassAttackMs / 1000) * sampleRate);
+    voice.subBassAttackRemaining = voice.subBassAttackMs > 0 ? voice.subBassAttackTotal : 0;
+    voice.subBassDecayTotal = Math.max(1, (voice.subBassDecayMs / 1000) * sampleRate);
+    voice.subBassDecayRemaining = voice.subBassDecayTotal;
+    return amp;
+  }
+
   if (stepIndex % 4 === 0) {
     const angle = Math.random() * Math.PI * 2;
     voice.panLeft = Math.cos(angle);
@@ -351,6 +414,10 @@ function renderVoiceFrame(voice) {
 
   if (voice.voiceType === "kick") {
     return renderKickFrame(voice);
+  }
+
+  if (voice.voiceType === "subbass") {
+    return renderSubBassFrame(voice);
   }
 
   return renderPercFrame(voice);
@@ -461,6 +528,43 @@ function renderKickFrame(voice) {
   };
 }
 
+function renderSubBassFrame(voice) {
+  const hasEnvelope = voice.subBassAmplitude > 0 && (voice.subBassAttackRemaining > 0 || voice.subBassDecayRemaining > 0);
+
+  if (!hasEnvelope && Math.abs(voice.subBassToneState) < 1e-5) {
+    return { left: 0, right: 0 };
+  }
+
+  let sample = 0;
+
+  if (hasEnvelope) {
+    const envelope = renderSubBassEnvelope(voice);
+    voice.subBassPhase += (TWO_PI * voice.subBassFreqHz) / sampleRate;
+
+    if (voice.subBassPhase >= TWO_PI) {
+      voice.subBassPhase -= TWO_PI;
+    }
+
+    const sine = Math.sin(voice.subBassPhase);
+    const triangle = (2 / Math.PI) * Math.asin(Math.sin(voice.subBassPhase));
+    const voiced = sine * (1 - voice.subBassWaveMix) + triangle * voice.subBassWaveMix;
+    const layered = (voiced + sine * voice.subBassSubLevel * 0.85) / (1 + voice.subBassSubLevel * 0.85);
+    sample = layered * envelope * voice.subBassAmplitude;
+  }
+
+  const cutoff = 80 + voice.subBassTone ** 1.5 * 3200;
+  const toneAlpha = 1 - Math.exp((-TWO_PI * cutoff) / sampleRate);
+  voice.subBassToneState += toneAlpha * (sample - voice.subBassToneState);
+
+  const driven = applyDrive(voice.subBassToneState, voice.subBassDrive);
+  const output = driven * voice.masterGain;
+
+  return {
+    left: output,
+    right: output,
+  };
+}
+
 function renderVoiceExcitation(voice) {
   let sample = 0;
 
@@ -500,6 +604,23 @@ function renderKickPitchEnvelope(voice) {
   const envelope = (1 - phase) ** 2.4;
   voice.kickPitchRemaining -= 1;
   return envelope;
+}
+
+function renderSubBassEnvelope(voice) {
+  let attack = 1;
+
+  if (voice.subBassAttackRemaining > 0) {
+    attack = 1 - voice.subBassAttackRemaining / voice.subBassAttackTotal;
+    voice.subBassAttackRemaining -= 1;
+  }
+
+  if (voice.subBassDecayRemaining <= 0) {
+    return 0;
+  }
+
+  const decay = renderDecayEnvelope(voice.subBassDecayRemaining, voice.subBassDecayTotal, 4.2);
+  voice.subBassDecayRemaining -= 1;
+  return attack * decay;
 }
 
 function renderDecayEnvelope(remaining, total, slope) {
@@ -577,7 +698,15 @@ function clamp(value, min, max) {
 }
 
 function normalizeVoiceType(value) {
-  return value === "kick" ? "kick" : "perc";
+  if (value === "kick") {
+    return "kick";
+  }
+
+  if (value === "subbass" || value === "sub-bass") {
+    return "subbass";
+  }
+
+  return "perc";
 }
 
 registerProcessor("ersatz-bessel-engine", ErsatzBesselProcessor);

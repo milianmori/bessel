@@ -99,6 +99,19 @@ function buildProcessorConfig(state, analysisByVoice, options) {
         };
       }
 
+      if (voice.voiceType === "subbass") {
+        return {
+          ...baseConfig,
+          subBassFreqHz: voice.subBassFreqHz,
+          subBassAttackMs: voice.subBassAttackMs,
+          subBassDecayMs: voice.subBassDecayMs,
+          subBassWaveMix: voice.subBassWaveMix,
+          subBassSubLevel: voice.subBassSubLevel,
+          subBassDrive: voice.subBassDrive,
+          subBassTone: voice.subBassTone,
+        };
+      }
+
       return {
         ...baseConfig,
         pitchEnvDurMs: voice.pitchEnvDurMs,

@@ -86,6 +86,17 @@ const kickVoiceScalarDefinitions = [
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
 
+const subBassVoiceScalarDefinitions = [
+  { key: "subBassFreqHz", label: "Fundamental", min: 28, max: 90, step: 0.1 },
+  { key: "subBassAttackMs", label: "Attack", min: 0, max: 120, step: 0.1 },
+  { key: "subBassDecayMs", label: "Decay", min: 80, max: 2400, step: 1 },
+  { key: "subBassWaveMix", label: "Wave Mix", min: 0, max: 1, step: 0.001 },
+  { key: "subBassSubLevel", label: "Sub Level", min: 0, max: 1, step: 0.001 },
+  { key: "subBassDrive", label: "Drive", min: 0, max: 1, step: 0.001 },
+  { key: "subBassTone", label: "Tone", min: 0, max: 1, step: 0.001 },
+  { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
+];
+
 let presets = [];
 let factoryPresets = [];
 let userPresets = [];
@@ -437,6 +448,7 @@ function createVoiceCardShell(voice, index) {
             <select class="voice-type-select">
               <option value="perc">Perc</option>
               <option value="kick">Kick</option>
+              <option value="subbass">Sub-Bass</option>
             </select>
           </label>
         </div>
@@ -824,7 +836,67 @@ function randomizeVoicePatternMode(voice) {
 }
 
 function getVoiceScalarDefinitions(voiceType) {
-  return voiceType === "kick" ? kickVoiceScalarDefinitions : percVoiceScalarDefinitions;
+  if (voiceType === "kick") {
+    return kickVoiceScalarDefinitions;
+  }
+
+  if (voiceType === "subbass") {
+    return subBassVoiceScalarDefinitions;
+  }
+
+  return percVoiceScalarDefinitions;
+}
+
+function getVoiceTypeLabel(voiceType) {
+  if (voiceType === "kick") {
+    return "Kick";
+  }
+
+  if (voiceType === "subbass") {
+    return "Sub-Bass";
+  }
+
+  return "Perc";
+}
+
+function getVoiceLayerLabel(voiceType) {
+  return `${getVoiceTypeLabel(voiceType)} Layer`;
+}
+
+function getVoiceMacroLabel(voiceType) {
+  if (voiceType === "perc") {
+    return "Voice Settings";
+  }
+
+  return `${getVoiceTypeLabel(voiceType)} Settings`;
+}
+
+function getVoiceRandomButtonLabel(voiceType) {
+  if (voiceType === "kick") {
+    return "Random Kick";
+  }
+
+  if (voiceType === "subbass") {
+    return "Random Sub";
+  }
+
+  return "Random";
+}
+
+function normalizeVoiceType(voiceType) {
+  if (voiceType === "kick") {
+    return "kick";
+  }
+
+  if (voiceType === "subbass" || voiceType === "sub-bass") {
+    return "subbass";
+  }
+
+  return "perc";
+}
+
+function estimateSubBassToneHz(voice) {
+  return clamp(80 + voice.subBassTone ** 1.5 * 3200, 40, 22050);
 }
 
 function rebuildVoiceScalarControls(view, voiceId, voiceType) {
@@ -886,10 +958,10 @@ function refreshVoiceView(view) {
   }
 
   view.typeSelect.value = voice.voiceType;
-  view.title.textContent = `Voice ${voiceIndex + 1}: ${voice.voiceType === "kick" ? "Kick Layer" : "Perc Layer"}`;
-  view.macroTitle.textContent = voice.voiceType === "kick" ? "Kick Settings" : "Voice Settings";
+  view.title.textContent = `Voice ${voiceIndex + 1}: ${getVoiceLayerLabel(voice.voiceType)}`;
+  view.macroTitle.textContent = getVoiceMacroLabel(voice.voiceType);
   view.stateLine.textContent = describeVoiceState(voice);
-  view.randomButton.textContent = voice.voiceType === "kick" ? "Random Kick" : "Random";
+  view.randomButton.textContent = getVoiceRandomButtonLabel(voice.voiceType);
   view.muteButton.textContent = voice.muted ? "An" : "Stumm";
   refreshVoicePatternControls(view, voice);
 
@@ -1001,20 +1073,21 @@ function switchVoiceType(voiceId, nextVoiceType) {
   const voice = getVoiceById(voiceId);
   const voiceIndex = getVoiceIndexById(voiceId);
   const view = voiceViews.get(voiceId);
+  const normalizedNextVoiceType = normalizeVoiceType(nextVoiceType);
 
   if (!voice || voiceIndex === -1 || !view) {
     return;
   }
 
-  if (voice.voiceType === nextVoiceType) {
+  if (voice.voiceType === normalizedNextVoiceType) {
     return;
   }
 
-  voice.voiceType = nextVoiceType === "kick" ? "kick" : "perc";
+  voice.voiceType = normalizedNextVoiceType;
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId] });
-  setStatus(`Voice ${voiceIndex + 1} auf ${voice.voiceType === "kick" ? "Kick" : "Perc"} umgestellt.`);
+  setStatus(`Voice ${voiceIndex + 1} auf ${getVoiceTypeLabel(voice.voiceType)} umgestellt.`);
 }
 
 function buildAmpPatternForVoice(voice) {
@@ -1111,6 +1184,35 @@ function randomizeKickVoiceState(voice) {
   voice.amps = buildAmpPatternForVoice(voice);
 }
 
+function randomizeSubBassPattern(voice) {
+  if (Math.random() < 0.38) {
+    voice.ampPatternSource = 2;
+    voice.rhythmMode = 0;
+    voice.ampMode = 4;
+    return;
+  }
+
+  const patternPool = ["amp:1", "amp:3", "amp:4", "rhythm:1", "rhythm:2", "rhythm:3", "rhythm:7", "rhythm:8"];
+  const nextPatternMode = patternPool[Math.floor(Math.random() * patternPool.length)];
+  const normalizedPatternMode = applyPatternModeValue(nextPatternMode, voice);
+
+  voice.ampPatternSource = 0;
+  voice.ampMode = normalizedPatternMode.ampMode;
+  voice.rhythmMode = normalizedPatternMode.rhythmMode;
+}
+
+function randomizeSubBassVoiceState(voice) {
+  voice.subBassFreqHz = randomInRange(32, 68, 0.1);
+  voice.subBassAttackMs = randomInRange(0, 24, 0.1);
+  voice.subBassDecayMs = randomInRange(180, 980, 1);
+  voice.subBassWaveMix = randomInRange(0.04, 0.5, 0.001);
+  voice.subBassSubLevel = randomInRange(0.38, 0.94, 0.001);
+  voice.subBassDrive = randomInRange(0.02, 0.26, 0.001);
+  voice.subBassTone = randomInRange(0.12, 0.62, 0.001);
+  randomizeSubBassPattern(voice);
+  voice.amps = buildAmpPatternForVoice(voice);
+}
+
 function randomizeVoice(voiceId) {
   const voice = getVoiceById(voiceId);
   const voiceIndex = getVoiceIndexById(voiceId);
@@ -1122,6 +1224,8 @@ function randomizeVoice(voiceId) {
 
   if (voice.voiceType === "kick") {
     randomizeKickVoiceState(voice);
+  } else if (voice.voiceType === "subbass") {
+    randomizeSubBassVoiceState(voice);
   } else {
     randomizePercVoiceState(voice);
   }
@@ -1129,9 +1233,7 @@ function randomizeVoice(voiceId) {
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId] });
-  setStatus(
-    `${voice.voiceType === "kick" ? "Kick" : "Voice"} ${voiceIndex + 1} randomisiert. Pattern: ${describePatternSelection(voice)}.`,
-  );
+  setStatus(`${getVoiceTypeLabel(voice.voiceType)} ${voiceIndex + 1} randomisiert. Pattern: ${describePatternSelection(voice)}.`);
 }
 
 async function saveStackAsUserPreset() {
@@ -1325,7 +1427,7 @@ function describeVoiceState(voice) {
       ? "lokal"
       : `${voice.presetSource === "user" ? "user" : "factory"}:${voice.presetName}`;
 
-  return `${stateLabel} · ${voice.voiceType === "kick" ? "Kick" : "Perc"} · ${sourceLabel} · ${describePatternSelection(voice)}`;
+  return `${stateLabel} · ${getVoiceTypeLabel(voice.voiceType)} · ${sourceLabel} · ${describePatternSelection(voice)}`;
 }
 
 function syncAll(options = {}) {
@@ -1351,12 +1453,20 @@ function renderActiveVoiceAnalysis(analysisByVoice = []) {
 
   drawBars(elements.freqCanvas, analysis.frequencies, { color: "#f0b075", baseline: 0 });
   drawBars(elements.weightCanvas, analysis.weights, { color: "#6ab1c7", baseline: 0, maxValue: 1 });
-  elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${activeVoice.voiceType === "kick" ? "Kick" : "Perc"}`;
+  elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${getVoiceTypeLabel(activeVoice.voiceType)}`;
 
   if (analysis.type === "kick") {
     elements.freqSummary.textContent = `Body ${activeVoice.kickBodyFreqHz.toFixed(1)} Hz · Peak ${analysis.frequencies[1].toFixed(1)} Hz`;
     elements.weightSummary.textContent =
       `Click ${activeVoice.kickClickLevel.toFixed(2)} · Noise ${activeVoice.kickNoiseLevel.toFixed(2)} · Drive ${activeVoice.kickDrive.toFixed(2)}`;
+    return;
+  }
+
+  if (analysis.type === "subbass") {
+    elements.freqSummary.textContent =
+      `Fundamental ${activeVoice.subBassFreqHz.toFixed(1)} Hz · Upper ${analysis.frequencies[1].toFixed(1)} Hz · LP ${estimateSubBassToneHz(activeVoice).toFixed(0)} Hz`;
+    elements.weightSummary.textContent =
+      `Sub ${activeVoice.subBassSubLevel.toFixed(2)} · Wave ${activeVoice.subBassWaveMix.toFixed(2)} · Drive ${activeVoice.subBassDrive.toFixed(2)} · Tone ${activeVoice.subBassTone.toFixed(2)}`;
     return;
   }
 

@@ -253,6 +253,10 @@ function createClassicWebPattern(length, voiceType) {
     return createClassicWebKickPattern(length);
   }
 
+  if (voiceType === "subbass") {
+    return createClassicWebSubBassPattern(length);
+  }
+
   return Array.from({ length }, () => Math.random());
 }
 
@@ -269,6 +273,26 @@ function createClassicWebKickPattern(length) {
     }
 
     return Math.random() < 0.18 ? randomInRange(0.08, 0.24, 0.001) : 0;
+  });
+}
+
+function createClassicWebSubBassPattern(length) {
+  return Array.from({ length }, (_, index) => {
+    const lane = index % 8;
+
+    if (lane === 0) {
+      return randomInRange(0.78, 1, 0.001);
+    }
+
+    if (lane === 4) {
+      return Math.random() < 0.72 ? randomInRange(0.34, 0.78, 0.001) : 0;
+    }
+
+    if (lane === 2 || lane === 6) {
+      return Math.random() < 0.28 ? randomInRange(0.16, 0.42, 0.001) : 0;
+    }
+
+    return Math.random() < 0.08 ? randomInRange(0.1, 0.24, 0.001) : 0;
   });
 }
 

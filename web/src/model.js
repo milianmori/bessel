@@ -50,6 +50,16 @@ const DEFAULT_KICK_VALUES = {
   kickTone: 0.58,
 };
 
+const DEFAULT_SUB_BASS_VALUES = {
+  subBassFreqHz: 43,
+  subBassAttackMs: 6,
+  subBassDecayMs: 520,
+  subBassWaveMix: 0.2,
+  subBassSubLevel: 0.66,
+  subBassDrive: 0.12,
+  subBassTone: 0.34,
+};
+
 export async function loadPresets() {
   const response = await fetch(`${import.meta.env.BASE_URL}data/presets.json`);
 
@@ -195,7 +205,9 @@ export function computeModalData(state, sampleRate = 44100) {
 }
 
 export function computeVoiceAnalysis(state, sampleRate = 44100) {
-  if (normalizeVoiceType(state.voiceType) === "kick") {
+  const voiceType = normalizeVoiceType(state.voiceType);
+
+  if (voiceType === "kick") {
     const peakFrequency = clamp(
       state.kickBodyFreqHz * 2 ** (state.kickPitchDropSt / 12),
       20,
@@ -209,6 +221,18 @@ export function computeVoiceAnalysis(state, sampleRate = 44100) {
     };
   }
 
+  if (voiceType === "subbass") {
+    return {
+      type: "subbass",
+      frequencies: [
+        state.subBassFreqHz,
+        clamp(state.subBassFreqHz * 2, 20, sampleRate / 2),
+        computeSubBassToneCutoff(state.subBassTone, sampleRate),
+      ],
+      weights: [state.subBassSubLevel, state.subBassWaveMix, state.subBassDrive, state.subBassTone],
+    };
+  }
+
   return {
     type: "perc",
     ...computeModalData(state, sampleRate),
@@ -219,6 +243,7 @@ export function formatValue(key, value) {
   switch (key) {
     case "tuning":
     case "kickBodyFreqHz":
+    case "subBassFreqHz":
       return `${value.toFixed(1)} Hz`;
     case "size":
     case "hitPosition":
@@ -228,6 +253,10 @@ export function formatValue(key, value) {
     case "kickNoiseLevel":
     case "kickDrive":
     case "kickTone":
+    case "subBassWaveMix":
+    case "subBassSubLevel":
+    case "subBassDrive":
+    case "subBassTone":
     case "masterGain":
       return value.toFixed(3);
     case "tempo":
@@ -238,6 +267,8 @@ export function formatValue(key, value) {
     case "kickPitchDropMs":
     case "kickClickDecayMs":
     case "kickNoiseDecayMs":
+    case "subBassAttackMs":
+    case "subBassDecayMs":
       return `${value.toFixed(1)} ms`;
     case "pitchEnvRange":
     case "kickPitchDropSt":
@@ -446,6 +477,41 @@ function normalizeVoicePayload(raw = {}) {
     ),
     kickDrive: clamp(readScalar(raw.kickDrive, DEFAULT_KICK_VALUES.kickDrive), 0, 1),
     kickTone: clamp(readScalar(raw.kickTone, DEFAULT_KICK_VALUES.kickTone), 0, 1),
+    subBassFreqHz: clamp(
+      readScalar(raw.subBassFreqHz ?? raw.sub_bass_freq_hz, DEFAULT_SUB_BASS_VALUES.subBassFreqHz),
+      28,
+      90,
+    ),
+    subBassAttackMs: clamp(
+      readScalar(raw.subBassAttackMs ?? raw.sub_bass_attack_ms, DEFAULT_SUB_BASS_VALUES.subBassAttackMs),
+      0,
+      120,
+    ),
+    subBassDecayMs: clamp(
+      readScalar(raw.subBassDecayMs ?? raw.sub_bass_decay_ms, DEFAULT_SUB_BASS_VALUES.subBassDecayMs),
+      80,
+      2400,
+    ),
+    subBassWaveMix: clamp(
+      readScalar(raw.subBassWaveMix ?? raw.sub_bass_wave_mix, DEFAULT_SUB_BASS_VALUES.subBassWaveMix),
+      0,
+      1,
+    ),
+    subBassSubLevel: clamp(
+      readScalar(raw.subBassSubLevel ?? raw.sub_bass_sub_level, DEFAULT_SUB_BASS_VALUES.subBassSubLevel),
+      0,
+      1,
+    ),
+    subBassDrive: clamp(
+      readScalar(raw.subBassDrive ?? raw.sub_bass_drive, DEFAULT_SUB_BASS_VALUES.subBassDrive),
+      0,
+      1,
+    ),
+    subBassTone: clamp(
+      readScalar(raw.subBassTone ?? raw.sub_bass_tone, DEFAULT_SUB_BASS_VALUES.subBassTone),
+      0,
+      1,
+    ),
     tempo: DEFAULT_PRESET_VALUES.tempo,
     masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0, 1.4),
     running: false,
@@ -485,6 +551,13 @@ function serializeVoicePayload(raw = {}) {
     kickNoiseDecayMs: normalizedState.kickNoiseDecayMs,
     kickDrive: normalizedState.kickDrive,
     kickTone: normalizedState.kickTone,
+    subBassFreqHz: normalizedState.subBassFreqHz,
+    subBassAttackMs: normalizedState.subBassAttackMs,
+    subBassDecayMs: normalizedState.subBassDecayMs,
+    subBassWaveMix: normalizedState.subBassWaveMix,
+    subBassSubLevel: normalizedState.subBassSubLevel,
+    subBassDrive: normalizedState.subBassDrive,
+    subBassTone: normalizedState.subBassTone,
     masterGain: normalizedState.masterGain,
   };
 }
@@ -514,7 +587,19 @@ function normalizePresetSource(source) {
 }
 
 function normalizeVoiceType(value) {
-  return value === "kick" ? "kick" : DEFAULT_VOICE_TYPE;
+  if (value === "kick") {
+    return "kick";
+  }
+
+  if (value === "subbass" || value === "sub-bass") {
+    return "subbass";
+  }
+
+  return DEFAULT_VOICE_TYPE;
+}
+
+function computeSubBassToneCutoff(tone, sampleRate) {
+  return clamp(80 + tone ** 1.5 * 3200, 40, sampleRate / 2);
 }
 
 function normalizeTimestamp(value) {
