@@ -1,5 +1,6 @@
 import {
   cloneState,
+  computeVoiceAnalysis,
   createDefaultMasterBusState,
   formatValue,
   loadPresets,
@@ -164,6 +165,7 @@ const percVoiceScalarDefinitions = [
   { key: "pitchEnvDurMs", label: "Pitch Env Dur", min: 0, max: 500, step: 1 },
   { key: "pitchEnvRange", label: "Pitch Env Range", min: -24, max: 24, step: 0.1 },
   { key: "pitchEnvCurve", label: "Pitch Env Curve", min: -1, max: 1, step: 0.001 },
+  { key: "noiseLevel", label: "Noise Volume", min: 0, max: 1, step: 0.001 },
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
@@ -192,6 +194,22 @@ const subBassVoiceScalarDefinitions = [
   { key: "subBassTone", label: "Tone", min: 0, max: 1, step: 0.001 },
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
+
+const voiceStepRandomizationDefinitions = {
+  perc: [
+    { key: "randomizeClickShapePerStep", label: "Click Shape" },
+    { key: "randomizeNzEnvDurMsPerStep", label: "Noise Dur" },
+  ],
+  kick: [
+    { key: "randomizeKickClickLevelPerStep", label: "Click Level" },
+    { key: "randomizeKickClickDecayMsPerStep", label: "Click Decay" },
+  ],
+  subbass: [
+    { key: "randomizeSubBassDrivePerStep", label: "Drive" },
+    { key: "randomizeSubBassDecayMsPerStep", label: "Decay" },
+    { key: "randomizeSubBassWaveMixPerStep", label: "Wave Mix" },
+  ],
+};
 
 let presets = [];
 let factoryPresets = [];
@@ -250,8 +268,9 @@ async function bootstrap() {
   renderMasterBusMeters();
   renderMasterBandReadouts();
 
-  engine.onStep = ({ stepIndex, amplitudes }) => {
+  engine.onStep = ({ stepIndex, amplitudes, randomizedVoices }) => {
     updateStepGrid(stepIndex, amplitudes);
+    applyStepRandomizedVoiceUpdates(randomizedVoices);
   };
   engine.onMasterMeter = (metrics) => {
     lastMasterMetrics = metrics;
@@ -1001,6 +1020,16 @@ function createVoiceCardShell(voice, index) {
           </label>
         </div>
         <div class="controls-grid voice-scalar-controls"></div>
+        <div class="voice-step-random-section">
+          <div class="voice-step-random-head">
+            <div>
+              <p class="eyebrow">Per Step</p>
+              <h3>Randomize</h3>
+            </div>
+            <p class="panel-note">Zieht pro Sequencer-Step neue Werte fuer die aktivierten Parameter.</p>
+          </div>
+          <div class="voice-step-random-controls"></div>
+        </div>
       </section>
 
       <section class="voice-subpanel voice-click-panel">
@@ -1073,6 +1102,7 @@ function createVoiceCardShell(voice, index) {
     stateLine: root.querySelector(".voice-state-line"),
     macroTitle: root.querySelector(".voice-macro-title"),
     scalarControls: root.querySelector(".voice-scalar-controls"),
+    stepRandomControls: root.querySelector(".voice-step-random-controls"),
     clickPanel: root.querySelector(".voice-click-panel"),
     envelopePanel: root.querySelector(".voice-envelope-panel"),
     clickCanvas: root.querySelector(".voice-click-canvas"),
@@ -1087,7 +1117,9 @@ function createVoiceCardShell(voice, index) {
     segmentCurveValue: root.querySelector(".voice-segment-curve-value"),
     controlInputs: new Map(),
     controlOutputs: new Map(),
+    stepRandomInputs: new Map(),
     currentScalarType: null,
+    currentStepRandomType: null,
     clickSlider: null,
     ampsSlider: null,
     envelopeEditor: null,
@@ -1098,6 +1130,7 @@ function initializeVoiceCard(view, voiceId, index) {
   populateSelectWithOptions(view.patternSourceSelect, AMP_PATTERN_SOURCE_OPTIONS);
   populatePatternModeSelect(view.patternModeSelect);
   rebuildVoiceScalarControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
+  rebuildVoiceStepRandomControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
 
   view.clickSlider = new MultiSlider({
     canvas: view.clickCanvas,
@@ -1392,6 +1425,10 @@ function getVoiceScalarDefinitions(voiceType) {
   return percVoiceScalarDefinitions;
 }
 
+function getVoiceStepRandomizationDefinitions(voiceType) {
+  return voiceStepRandomizationDefinitions[voiceType] ?? voiceStepRandomizationDefinitions.perc;
+}
+
 function getVoiceTypeLabel(voiceType) {
   if (voiceType === "kick") {
     return "Kick";
@@ -1497,6 +1534,49 @@ function rebuildVoiceScalarControls(view, voiceId, voiceType) {
   });
 }
 
+function rebuildVoiceStepRandomControls(view, voiceId, voiceType) {
+  view.currentStepRandomType = voiceType;
+  view.stepRandomInputs.clear();
+  view.stepRandomControls.textContent = "";
+
+  getVoiceStepRandomizationDefinitions(voiceType).forEach((definition) => {
+    const toggle = document.createElement("label");
+    toggle.className = "voice-step-random-toggle";
+
+    const title = document.createElement("span");
+    title.className = "voice-step-random-label";
+    title.textContent = definition.label;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(getVoiceById(voiceId)?.[definition.key]);
+    input.setAttribute("aria-label", `${definition.label} pro Step randomisieren`);
+
+    toggle.append(title, input);
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    input.addEventListener("change", () => {
+      const voice = getVoiceById(voiceId);
+      const voiceIndex = getVoiceIndexById(voiceId);
+
+      if (!voice || voiceIndex === -1) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice[definition.key] = input.checked;
+      syncAll();
+      setStatus(
+        `Voice ${voiceIndex + 1}: ${definition.label} pro Step ${input.checked ? "random" : "stabil"}.`,
+      );
+    });
+
+    view.stepRandomInputs.set(definition.key, input);
+    view.stepRandomControls.append(toggle);
+  });
+}
+
 function refreshVoiceView(view) {
   const voiceId = Number(view.root.dataset.voiceId);
   const voice = getVoiceById(voiceId);
@@ -1508,6 +1588,10 @@ function refreshVoiceView(view) {
 
   if (view.currentScalarType !== voice.voiceType) {
     rebuildVoiceScalarControls(view, voiceId, voice.voiceType);
+  }
+
+  if (view.currentStepRandomType !== voice.voiceType) {
+    rebuildVoiceStepRandomControls(view, voiceId, voice.voiceType);
   }
 
   view.typeSelect.value = voice.voiceType;
@@ -1538,6 +1622,16 @@ function refreshVoiceView(view) {
 
     input.value = String(toSliderValue(definition, voice[definition.key]));
     output.textContent = formatValue(definition.key, voice[definition.key]);
+  });
+
+  getVoiceStepRandomizationDefinitions(voice.voiceType).forEach((definition) => {
+    const input = view.stepRandomInputs.get(definition.key);
+
+    if (!input) {
+      return;
+    }
+
+    input.checked = Boolean(voice[definition.key]);
   });
 
   view.clickPanel.hidden = voice.voiceType !== "perc";
@@ -2074,6 +2168,37 @@ function refreshVoicePresentation(voiceId) {
 
   if (headerView) {
     refreshHeaderVoiceControl(headerView);
+  }
+}
+
+function applyStepRandomizedVoiceUpdates(randomizedVoices = []) {
+  if (!Array.isArray(randomizedVoices) || !randomizedVoices.length) {
+    return;
+  }
+
+  const sampleRate = engine.context?.sampleRate ?? 44100;
+  let activeVoiceChanged = false;
+
+  randomizedVoices.forEach((update) => {
+    const voice = getVoiceById(update?.voiceId);
+    const voiceIndex = getVoiceIndexById(update?.voiceId);
+    const values = update?.values;
+
+    if (!voice || voiceIndex === -1 || !values || typeof values !== "object") {
+      return;
+    }
+
+    Object.entries(values).forEach(([key, value]) => {
+      voice[key] = Array.isArray(value) ? [...value] : value;
+    });
+
+    engine.lastAnalysisByVoice[voiceIndex] = computeVoiceAnalysis(voice, sampleRate);
+    refreshVoicePresentation(voice.voiceId);
+    activeVoiceChanged ||= appState.activeVoiceId === voice.voiceId;
+  });
+
+  if (activeVoiceChanged) {
+    renderActiveVoiceAnalysis(engine.lastAnalysisByVoice);
   }
 }
 

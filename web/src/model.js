@@ -41,6 +41,7 @@ const DEFAULT_PRESET_VALUES = {
   pitchEnvCurve: 0,
   pitchEnvDurMs: 50,
   pitchEnvRange: 0,
+  noiseLevel: 1,
   nzEnvDurMs: 50,
   tempo: 118,
   masterGain: FIXED_MASTER_GAIN,
@@ -67,6 +68,16 @@ const DEFAULT_SUB_BASS_VALUES = {
   subBassSubLevel: 0.66,
   subBassDrive: 0.12,
   subBassTone: 0.34,
+};
+
+const DEFAULT_STEP_RANDOMIZATION_VALUES = {
+  randomizeKickClickLevelPerStep: false,
+  randomizeKickClickDecayMsPerStep: false,
+  randomizeClickShapePerStep: false,
+  randomizeNzEnvDurMsPerStep: false,
+  randomizeSubBassDrivePerStep: false,
+  randomizeSubBassDecayMsPerStep: false,
+  randomizeSubBassWaveMixPerStep: false,
 };
 
 export async function loadPresets() {
@@ -304,6 +315,7 @@ export function formatValue(key, value) {
     case "hitPosition":
     case "damping":
     case "overtones":
+    case "noiseLevel":
     case "kickClickLevel":
     case "kickNoiseLevel":
     case "kickDrive":
@@ -513,6 +525,11 @@ function normalizeVoicePayload(raw = {}) {
       -24,
       24,
     ),
+    noiseLevel: clamp(
+      readScalar(raw.noiseLevel ?? raw.noise_level, DEFAULT_PRESET_VALUES.noiseLevel),
+      0,
+      1,
+    ),
     nzEnvDurMs: clamp(
       readScalar(raw.nzEnvDurMs ?? raw.nz_env_dur, DEFAULT_PRESET_VALUES.nzEnvDurMs),
       0,
@@ -571,6 +588,34 @@ function normalizeVoicePayload(raw = {}) {
       0,
       1,
     ),
+    randomizeKickClickLevelPerStep: readBoolean(
+      raw.randomizeKickClickLevelPerStep ?? raw.randomize_kick_click_level_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeKickClickLevelPerStep,
+    ),
+    randomizeKickClickDecayMsPerStep: readBoolean(
+      raw.randomizeKickClickDecayMsPerStep ?? raw.randomize_kick_click_decay_ms_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeKickClickDecayMsPerStep,
+    ),
+    randomizeClickShapePerStep: readBoolean(
+      raw.randomizeClickShapePerStep ?? raw.randomize_click_shape_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeClickShapePerStep,
+    ),
+    randomizeNzEnvDurMsPerStep: readBoolean(
+      raw.randomizeNzEnvDurMsPerStep ?? raw.randomize_nz_env_dur_ms_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeNzEnvDurMsPerStep,
+    ),
+    randomizeSubBassDrivePerStep: readBoolean(
+      raw.randomizeSubBassDrivePerStep ?? raw.randomize_sub_bass_drive_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeSubBassDrivePerStep,
+    ),
+    randomizeSubBassDecayMsPerStep: readBoolean(
+      raw.randomizeSubBassDecayMsPerStep ?? raw.randomize_sub_bass_decay_ms_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeSubBassDecayMsPerStep,
+    ),
+    randomizeSubBassWaveMixPerStep: readBoolean(
+      raw.randomizeSubBassWaveMixPerStep ?? raw.randomize_sub_bass_wave_mix_per_step,
+      DEFAULT_STEP_RANDOMIZATION_VALUES.randomizeSubBassWaveMixPerStep,
+    ),
     tempo: DEFAULT_PRESET_VALUES.tempo,
     masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0, 1.4),
     running: false,
@@ -599,6 +644,7 @@ function serializeVoicePayload(raw = {}) {
     pitchEnvCurve: normalizedState.pitchEnvCurve,
     pitchEnvDurMs: normalizedState.pitchEnvDurMs,
     pitchEnvRange: normalizedState.pitchEnvRange,
+    noiseLevel: normalizedState.noiseLevel,
     nzEnvDurMs: normalizedState.nzEnvDurMs,
     kickBodyFreqHz: normalizedState.kickBodyFreqHz,
     kickBodyDecayMs: normalizedState.kickBodyDecayMs,
@@ -617,6 +663,13 @@ function serializeVoicePayload(raw = {}) {
     subBassSubLevel: normalizedState.subBassSubLevel,
     subBassDrive: normalizedState.subBassDrive,
     subBassTone: normalizedState.subBassTone,
+    randomizeKickClickLevelPerStep: normalizedState.randomizeKickClickLevelPerStep,
+    randomizeKickClickDecayMsPerStep: normalizedState.randomizeKickClickDecayMsPerStep,
+    randomizeClickShapePerStep: normalizedState.randomizeClickShapePerStep,
+    randomizeNzEnvDurMsPerStep: normalizedState.randomizeNzEnvDurMsPerStep,
+    randomizeSubBassDrivePerStep: normalizedState.randomizeSubBassDrivePerStep,
+    randomizeSubBassDecayMsPerStep: normalizedState.randomizeSubBassDecayMsPerStep,
+    randomizeSubBassWaveMixPerStep: normalizedState.randomizeSubBassWaveMixPerStep,
     masterGain: normalizedState.masterGain,
   };
 }

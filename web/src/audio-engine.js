@@ -131,6 +131,13 @@ function buildProcessorConfig(state, analysisByVoice, options) {
         muted: isVoiceEffectivelyMuted(voice, soloActive),
         masterGain: voice.masterGain,
         amps: [...voice.amps],
+        randomizeKickClickLevelPerStep: Boolean(voice.randomizeKickClickLevelPerStep),
+        randomizeKickClickDecayMsPerStep: Boolean(voice.randomizeKickClickDecayMsPerStep),
+        randomizeClickShapePerStep: Boolean(voice.randomizeClickShapePerStep),
+        randomizeNzEnvDurMsPerStep: Boolean(voice.randomizeNzEnvDurMsPerStep),
+        randomizeSubBassDrivePerStep: Boolean(voice.randomizeSubBassDrivePerStep),
+        randomizeSubBassDecayMsPerStep: Boolean(voice.randomizeSubBassDecayMsPerStep),
+        randomizeSubBassWaveMixPerStep: Boolean(voice.randomizeSubBassWaveMixPerStep),
       };
 
       if (voice.voiceType === "kick") {
@@ -167,6 +174,7 @@ function buildProcessorConfig(state, analysisByVoice, options) {
         pitchEnvDurMs: voice.pitchEnvDurMs,
         pitchEnvCurve: voice.pitchEnvCurve,
         pitchEnvRange: voice.pitchEnvRange,
+        noiseLevel: voice.noiseLevel,
         nzEnvDurMs: voice.nzEnvDurMs,
         clickShape: [...voice.clickShape],
         noiseEnvelopePoints: voice.noiseEnvelope.points.map((point) => ({ ...point })),

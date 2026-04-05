@@ -106,13 +106,25 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
   triggerStep() {
     const stepCount = this.voices.reduce((max, voice) => Math.max(max, voice.amps.length), 16);
     this.stepIndex = (this.stepIndex + 1) % Math.max(1, stepCount);
+    const randomizedVoices = [];
+    const amplitudes = this.voices.map((voice) => {
+      const result = triggerVoiceStep(voice, this.stepIndex);
 
-    const amplitudes = this.voices.map((voice) => triggerVoiceStep(voice, this.stepIndex));
+      if (result.randomizedValues) {
+        randomizedVoices.push({
+          voiceId: voice.voiceId,
+          values: result.randomizedValues,
+        });
+      }
+
+      return result.amplitude;
+    });
 
     this.port.postMessage({
       type: "step",
       stepIndex: this.stepIndex % 16,
       amplitudes,
+      randomizedVoices,
     });
   }
 }
@@ -132,6 +144,7 @@ function createVoiceRuntime(config) {
     pitchEnvDurMs: 50,
     pitchEnvCurve: 0,
     pitchEnvRange: 0,
+    noiseLevel: 1,
     nzEnvDurMs: 50,
     kickBodyFreqHz: 52,
     kickBodyDecayMs: 360,
@@ -143,6 +156,13 @@ function createVoiceRuntime(config) {
     kickNoiseDecayMs: 36,
     kickDrive: 0.14,
     kickTone: 0.58,
+    randomizeKickClickLevelPerStep: false,
+    randomizeKickClickDecayMsPerStep: false,
+    randomizeClickShapePerStep: false,
+    randomizeNzEnvDurMsPerStep: false,
+    randomizeSubBassDrivePerStep: false,
+    randomizeSubBassDecayMsPerStep: false,
+    randomizeSubBassWaveMixPerStep: false,
     subBassFreqHz: 43,
     subBassAttackMs: 6,
     subBassDecayMs: 520,
@@ -193,6 +213,13 @@ function applyVoiceConfig(voice, config) {
   voice.voiceId = config.voiceId;
   voice.voiceType = normalizeVoiceType(config.voiceType);
   voice.muted = Boolean(config.muted);
+  voice.randomizeKickClickLevelPerStep = Boolean(config.randomizeKickClickLevelPerStep);
+  voice.randomizeKickClickDecayMsPerStep = Boolean(config.randomizeKickClickDecayMsPerStep);
+  voice.randomizeClickShapePerStep = Boolean(config.randomizeClickShapePerStep);
+  voice.randomizeNzEnvDurMsPerStep = Boolean(config.randomizeNzEnvDurMsPerStep);
+  voice.randomizeSubBassDrivePerStep = Boolean(config.randomizeSubBassDrivePerStep);
+  voice.randomizeSubBassDecayMsPerStep = Boolean(config.randomizeSubBassDecayMsPerStep);
+  voice.randomizeSubBassWaveMixPerStep = Boolean(config.randomizeSubBassWaveMixPerStep);
 
   if (typeof config.masterGain === "number") {
     voice.masterGain = clamp(config.masterGain, 0, 2);
@@ -208,6 +235,10 @@ function applyVoiceConfig(voice, config) {
 
   if (typeof config.pitchEnvRange === "number") {
     voice.pitchEnvRange = clamp(config.pitchEnvRange, -48, 48);
+  }
+
+  if (typeof config.noiseLevel === "number") {
+    voice.noiseLevel = clamp(config.noiseLevel, 0, 1);
   }
 
   if (typeof config.nzEnvDurMs === "number") {
@@ -358,10 +389,14 @@ function resetVoiceState(voice, clearModes) {
 function triggerVoiceStep(voice, stepIndex) {
   if (!voice.amps.length || voice.muted) {
     resetVoiceState(voice, true);
-    return 0;
+    return {
+      amplitude: 0,
+      randomizedValues: null,
+    };
   }
 
   const amp = voice.amps[stepIndex % voice.amps.length] ?? 0;
+  const randomizedValues = applyStepRandomization(voice);
 
   if (voice.voiceType === "kick") {
     voice.kickAmplitude = amp;
@@ -374,12 +409,18 @@ function triggerVoiceStep(voice, stepIndex) {
     voice.kickClickRemaining = voice.kickClickLevel > 0 && amp > 0 ? voice.kickClickTotal : 0;
     voice.kickNoiseTotal = Math.max(1, (voice.kickNoiseDecayMs / 1000) * sampleRate);
     voice.kickNoiseRemaining = voice.kickNoiseLevel > 0 && amp > 0 ? voice.kickNoiseTotal : 0;
-    return amp;
+    return {
+      amplitude: amp,
+      randomizedValues,
+    };
   }
 
   if (voice.voiceType === "subbass") {
     if (amp <= 0) {
-      return 0;
+      return {
+        amplitude: 0,
+        randomizedValues,
+      };
     }
 
     voice.subBassAmplitude = amp;
@@ -388,7 +429,10 @@ function triggerVoiceStep(voice, stepIndex) {
     voice.subBassAttackRemaining = voice.subBassAttackMs > 0 ? voice.subBassAttackTotal : 0;
     voice.subBassDecayTotal = Math.max(1, (voice.subBassDecayMs / 1000) * sampleRate);
     voice.subBassDecayRemaining = voice.subBassDecayTotal;
-    return amp;
+    return {
+      amplitude: amp,
+      randomizedValues,
+    };
   }
 
   if (stepIndex % 4 === 0) {
@@ -399,12 +443,68 @@ function triggerVoiceStep(voice, stepIndex) {
 
   voice.clickAmp = amp;
   voice.clickIndex = 0;
-  voice.noiseAmp = amp;
+  voice.noiseAmp = amp * voice.noiseLevel;
   voice.noiseTotal = Math.max(1, (voice.nzEnvDurMs / 1000) * sampleRate);
   voice.noiseRemaining = voice.nzEnvDurMs > 0 ? voice.noiseTotal : 0;
   voice.pitchTotal = Math.max(1, (voice.pitchEnvDurMs / 1000) * sampleRate);
   voice.pitchRemaining = voice.pitchEnvDurMs > 0 ? voice.pitchTotal : 0;
-  return amp;
+  return {
+    amplitude: amp,
+    randomizedValues,
+  };
+}
+
+function applyStepRandomization(voice) {
+  const randomizedValues = {};
+
+  if (voice.voiceType === "kick") {
+    if (voice.randomizeKickClickLevelPerStep) {
+      voice.kickClickLevel = randomInRange(0.05, 0.34, 0.001);
+      randomizedValues.kickClickLevel = voice.kickClickLevel;
+    }
+
+    if (voice.randomizeKickClickDecayMsPerStep) {
+      voice.kickClickDecayMs = randomInRange(4, 22, 0.1);
+      randomizedValues.kickClickDecayMs = voice.kickClickDecayMs;
+    }
+
+    return Object.keys(randomizedValues).length ? randomizedValues : null;
+  }
+
+  if (voice.voiceType === "subbass") {
+    if (voice.randomizeSubBassDrivePerStep) {
+      voice.subBassDrive = randomInRange(0.02, 0.26, 0.001);
+      randomizedValues.subBassDrive = voice.subBassDrive;
+    }
+
+    if (voice.randomizeSubBassDecayMsPerStep) {
+      voice.subBassDecayMs = randomInRange(180, 980, 1);
+      randomizedValues.subBassDecayMs = voice.subBassDecayMs;
+    }
+
+    if (voice.randomizeSubBassWaveMixPerStep) {
+      voice.subBassWaveMix = randomInRange(0.04, 0.5, 0.001);
+      randomizedValues.subBassWaveMix = voice.subBassWaveMix;
+    }
+
+    return Object.keys(randomizedValues).length ? randomizedValues : null;
+  }
+
+  if (voice.randomizeClickShapePerStep) {
+    voice.clickShape = createRandomClickShape(voice.clickShape.length);
+    randomizedValues.clickShape = Array.from(voice.clickShape);
+  }
+
+  if (voice.randomizeNzEnvDurMsPerStep) {
+    voice.nzEnvDurMs = randomInRange(0, 220, 0.1);
+    randomizedValues.nzEnvDurMs = voice.nzEnvDurMs;
+  }
+
+  return Object.keys(randomizedValues).length ? randomizedValues : null;
+}
+
+function createRandomClickShape(length) {
+  return Float32Array.from({ length }, () => Math.random());
 }
 
 function renderVoiceFrame(voice) {
@@ -695,6 +795,26 @@ function sanitize(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function randomInRange(min, max, step = null) {
+  const value = min + Math.random() * (max - min);
+
+  if (!step) {
+    return value;
+  }
+
+  const steps = Math.round((value - min) / step);
+  const rounded = min + steps * step;
+  const precision = Math.max(0, countDecimals(step));
+
+  return Number(clamp(rounded, min, max).toFixed(precision));
+}
+
+function countDecimals(value) {
+  const valueAsString = String(value);
+  const decimals = valueAsString.split(".")[1];
+  return decimals ? decimals.length : 0;
 }
 
 function normalizeVoiceType(value) {
