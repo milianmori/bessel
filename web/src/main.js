@@ -265,7 +265,7 @@ async function bootstrap() {
   renderScopeLoop();
 
   if (restoredSession) {
-    setStatus("Letzte Session wiederhergestellt. Audio bleibt bis zum naechsten Start gestoppt.");
+    setStatus("Letzte Session wiederhergestellt. Alle Voices starten stumm, Audio bleibt bis zum naechsten Start gestoppt.");
   } else if (presetWarnings.length) {
     setStatus(`${presetWarnings.join(" ")} Audio bleibt nutzbar.`);
   }
@@ -296,6 +296,8 @@ function createVoiceFromPreset(preset, overrides = {}) {
   const presetVoice = getPresetVoiceStates(preset)[0] ?? preset;
   return createVoiceFromState(presetVoice, {
     ...overrides,
+    muted: true,
+    solo: false,
     presetId: preset.id,
     presetName: preset.name,
     presetSource: preset.source ?? "factory",
@@ -305,6 +307,8 @@ function createVoiceFromPreset(preset, overrides = {}) {
 function createVoicesFromPreset(preset) {
   return getPresetVoiceStates(preset).map((presetVoice) =>
     createVoiceFromState(presetVoice, {
+      muted: true,
+      solo: false,
       presetId: preset.id,
       presetName: preset.name,
       presetSource: preset.source ?? "factory",
@@ -324,7 +328,13 @@ function buildInitialAppState() {
   const restoredSession = loadSessionState();
 
   if (restoredSession?.voices.length) {
-    const restoredVoices = restoredSession.voices.map((voice) => syncVoicePresetMetadata(voice));
+    const restoredVoices = restoredSession.voices.map((voice) =>
+      syncVoicePresetMetadata({
+        ...voice,
+        muted: true,
+        solo: false,
+      }),
+    );
     const activeVoiceExists = restoredVoices.some((voice) => voice.voiceId === restoredSession.activeVoiceId);
 
     return {

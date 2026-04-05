@@ -415,6 +415,10 @@ h3 {
   align-items: center;
 }
 
+.header-voice-strip-title {
+  font-size: clamp(1.18rem, 1.35vw, 1.6rem);
+}
+
 .header-voice-strip-label {
   color: var(--muted);
   font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
