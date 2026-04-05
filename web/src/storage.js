@@ -86,7 +86,7 @@ export async function persistUserPresets(userPresets) {
   }
 }
 
-export function createUserPresetSnapshot(voices, name, existingPreset = null) {
+export function createUserPresetSnapshot(voices, name, existingPreset = null, tempo = null) {
   const timestamp = Date.now();
 
   return createPresetFromVoices(voices, {
@@ -95,6 +95,7 @@ export function createUserPresetSnapshot(voices, name, existingPreset = null) {
     source: "user",
     createdAt: existingPreset?.createdAt ?? timestamp,
     updatedAt: timestamp,
+    tempo,
   });
 }
 

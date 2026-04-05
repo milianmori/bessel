@@ -79,6 +79,7 @@ export async function loadPresets() {
         source: "factory",
         data: {
           voices: [slot?.data ?? {}],
+          tempo: slot?.data?.tempo ?? slot?.data?.bpm ?? null,
         },
       }),
     );
@@ -109,7 +110,10 @@ export function createPresetFromVoices(voices, metadata = {}) {
     source: metadata.source ?? "user",
     createdAt: metadata.createdAt ?? timestamp,
     updatedAt: metadata.updatedAt ?? timestamp,
-    data: { voices },
+    data: {
+      voices,
+      tempo: metadata.tempo ?? null,
+    },
   });
 }
 
@@ -156,7 +160,7 @@ export function serializePresetState(preset) {
     data: preset,
   });
 
-  return {
+  const serializedPreset = {
     id: normalized.id,
     name: normalized.name,
     source: normalized.source,
@@ -164,6 +168,12 @@ export function serializePresetState(preset) {
     updatedAt: normalized.updatedAt,
     voices: normalized.voices.map((voice) => serializeVoicePayload(voice)),
   };
+
+  if (normalized.tempo !== null) {
+    serializedPreset.tempo = normalized.tempo;
+  }
+
+  return serializedPreset;
 }
 
 export function serializeVoiceState(voice) {
@@ -368,6 +378,7 @@ export function normalizeEnvelopePoints(points) {
 function normalizePresetDefinition({ id, name, source = "factory", createdAt = null, updatedAt = null, data = {} }) {
   const voices = normalizePresetVoices(data);
   const primaryVoice = voices[0] ?? normalizeVoicePayload(data);
+  const tempo = normalizePresetTempo(data?.tempo ?? data?.bpm);
 
   return {
     id: normalizePresetId(id) ?? Date.now(),
@@ -377,6 +388,7 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
     updatedAt: normalizeTimestamp(updatedAt),
     voices,
     ...primaryVoice,
+    tempo,
   };
 }
 
@@ -603,6 +615,11 @@ function computeSubBassToneCutoff(tone, sampleRate) {
 }
 
 function normalizeTimestamp(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function normalizePresetTempo(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }

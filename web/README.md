@@ -31,6 +31,26 @@ Falls du den Dev-Server bewusst im Netzwerk freigeben willst, kannst du ihn einm
 npm run dev -- --host 0.0.0.0
 ```
 
+## Deploy
+
+Fuer ein Deploy auf `surge.sh` gibt es jetzt einen Script mit fester Ziel-Domain:
+
+```bash
+npm run deploy
+```
+
+Der Script published immer nach:
+
+```text
+https://ersatz-bessel-milian-20260404.surge.sh/
+```
+
+Voraussetzung ist, dass `surge` auf deinem System verfuegbar ist, zum Beispiel ueber:
+
+```bash
+npm install -g surge
+```
+
 ## Stand
 
 - Mehrere layerbare Voices mit gemeinsamem BPM

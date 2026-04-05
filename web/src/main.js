@@ -1061,12 +1061,22 @@ function loadPresetStack(presetId) {
     return;
   }
 
+  const presetTempo = Number(preset.tempo);
+  const hasPresetTempo = Number.isFinite(presetTempo) && presetTempo > 0;
+
   appState.voices = createVoicesFromPreset(preset);
   appState.activeVoiceId = appState.voices[Math.min(currentActiveIndex, appState.voices.length - 1)].voiceId;
 
+  if (hasPresetTempo) {
+    appState.tempo = presetTempo;
+    refreshTransportControls();
+  }
+
   renderVoiceCards();
   syncAll();
-  setStatus(`Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.`);
+  setStatus(
+    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}`,
+  );
 }
 
 function switchVoiceType(voiceId, nextVoiceType) {
@@ -1247,7 +1257,7 @@ async function saveStackAsUserPreset() {
     currentPreset.presetName,
   );
   const presetToOverwrite = findUserPresetByName(presetName);
-  const preset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite);
+  const preset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite, appState.tempo);
   const nextUserPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
   const persistence = await commitUserPresetChanges(nextUserPresets);
 
@@ -1272,7 +1282,7 @@ async function updateUserPresetFromStack() {
   const presetName = normalizePresetName(elements.presetNameInput.value, existingPreset.name);
   const presetToOverwrite = findUserPresetByName(presetName) ?? existingPreset;
   const presetIdsToRemove = new Set([presetToOverwrite.id, existingPreset.id]);
-  const updatedPreset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite);
+  const updatedPreset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite, appState.tempo);
   const nextUserPresets = [updatedPreset, ...userPresets.filter((entry) => !presetIdsToRemove.has(entry.id))];
   const persistence = await commitUserPresetChanges(nextUserPresets);
 
