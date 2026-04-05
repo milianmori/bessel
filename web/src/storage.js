@@ -1,4 +1,6 @@
 import {
+  normalizeMasterBusState,
+  serializeMasterBusState,
   createPresetFromVoices,
   normalizeStoredUserPreset,
   restoreVoiceState,
@@ -90,7 +92,7 @@ export async function persistUserPresets(userPresets) {
   }
 }
 
-export function createUserPresetSnapshot(voices, name, existingPreset = null, tempo = null) {
+export function createUserPresetSnapshot(voices, name, existingPreset = null, tempo = null, masterBusMode = null) {
   const timestamp = Date.now();
 
   return createPresetFromVoices(voices, {
@@ -100,6 +102,7 @@ export function createUserPresetSnapshot(voices, name, existingPreset = null, te
     createdAt: existingPreset?.createdAt ?? timestamp,
     updatedAt: timestamp,
     tempo,
+    masterBusMode,
   });
 }
 
@@ -121,6 +124,7 @@ export function loadSessionState() {
     tempo: Number.isFinite(tempo) ? tempo : 118,
     activeVoiceId,
     voices,
+    masterBus: normalizeMasterBusState(payload?.masterBus),
   };
 }
 
@@ -130,6 +134,7 @@ export function persistSessionState(state) {
     tempo: state.tempo,
     activeVoiceId: state.activeVoiceId,
     voices: state.voices.map((voice) => serializeVoiceState(voice)),
+    masterBus: serializeMasterBusState(state.masterBus),
   });
 }
 

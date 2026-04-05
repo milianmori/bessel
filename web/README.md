@@ -58,6 +58,7 @@ npm install -g surge
 ## Stand
 
 - Mehrere layerbare Voices mit gemeinsamem BPM
+- Adaptiver Master-Bus mit Input-Leveler, 3-Band-Kompression und Safety-Limiter hinter dem Synth-Worklet
 - BPM-Randomize-Button direkt im Header
 - `+ Voice` klont die aktive Voice inklusive aller lokalen Parameter
 - Pro Voice eigene Preset-Auswahl, Randomize, Mute und Editoren
@@ -72,5 +73,6 @@ npm install -g surge
 - Presets geladen aus den originalen Philip-Daten
 - Vite-Dev-Server und Vite-Build/Preview-Skripte
 - Statische Assets ueber `public/`, Bilder unter `public/images/`
+- Signalfluss-Doku in `master-output-scheme.md`
 
 Die Engine ist absichtlich nah an der Max-Struktur gebaut, aber nicht bit-identisch zum Max-Rendering.

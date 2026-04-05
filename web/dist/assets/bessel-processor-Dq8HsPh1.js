@@ -86,8 +86,8 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
         mixRight += frameMix.right;
       }
 
-      left[frame] = Math.tanh(mixLeft / normalization);
-      right[frame] = Math.tanh(mixRight / normalization);
+      left[frame] = sanitize(mixLeft / normalization);
+      right[frame] = sanitize(mixRight / normalization);
     }
 
     return true;

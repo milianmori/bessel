@@ -1,5 +1,6 @@
 import {
   cloneState,
+  createDefaultMasterBusState,
   formatValue,
   loadPresets,
   restoreVoiceState,
@@ -48,6 +49,12 @@ const elements = {
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
   voiceList: document.querySelector("#voice-list"),
+  masterBusModeSelect: document.querySelector("#master-bus-mode-select"),
+  masterBusModeNote: document.querySelector("#master-bus-mode-note"),
+  masterBusControls: document.querySelector("#master-bus-controls"),
+  masterBusMeters: document.querySelector("#master-bus-meters"),
+  masterBandReadouts: document.querySelector("#master-band-readouts"),
+  masterBusStatus: document.querySelector("#master-bus-status"),
   analysisVoiceLabel: document.querySelector("#analysis-voice-label"),
   freqCanvas: document.querySelector("#freq-canvas"),
   weightCanvas: document.querySelector("#weight-canvas"),
@@ -58,6 +65,94 @@ const elements = {
 };
 
 const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
+
+const MASTER_BUS_TOGGLE_DEFINITIONS = [
+  {
+    key: "enabled",
+    label: "Master Bus",
+    description: "Globaler Bypass fuer die komplette Output-Chain.",
+  },
+  {
+    key: "enableLowBand",
+    label: "Low Band",
+    description: "Messbasiert gesetzte Kompression fuer den Bassbereich.",
+  },
+  {
+    key: "enableMidBand",
+    label: "Mid Band",
+    description: "Messbasiert gesetzte Kompression fuer Mitten und Body.",
+  },
+  {
+    key: "enableHighBand",
+    label: "High Band",
+    description: "Messbasiert gesetzte Kompression fuer Hoehen und Transienten.",
+  },
+  {
+    key: "enableLimiter",
+    label: "Limiter",
+    description: "Safety-Ceiling am Ausgang des Master-Busses.",
+  },
+];
+
+const MASTER_BUS_MODE_DEFINITIONS = [
+  {
+    key: "balanced",
+    label: "Balanced",
+    description: "Neutraler Auto-Setup mit moderater Verdichtung ueber alle drei Baender.",
+  },
+  {
+    key: "aggressive",
+    label: "Aggressive",
+    description: "Dichter, schneller und mit mehr erlaubter Gain-Reduction.",
+  },
+  {
+    key: "punch",
+    label: "Punch",
+    description: "Langsamere Attacks und hoehere Thresholds fuer mehr Anschlag.",
+  },
+  {
+    key: "smooth",
+    label: "Smooth",
+    description: "Weniger Transienten, weicheres Einfangen und ruhigeres Sustain.",
+  },
+  {
+    key: "glue",
+    label: "Glue",
+    description: "Leichte Verdichtung, damit sich die Layer unauffaellig zusammenschieben.",
+  },
+  {
+    key: "air",
+    label: "Air Keep",
+    description: "Low und Mid werden gefuehrt, das High-Band bleibt offener.",
+  },
+];
+
+const MASTER_BUS_METER_DEFINITIONS = [
+  { key: "inputPeakDb", label: "In Peak", format: "db" },
+  { key: "inputRmsDb", label: "In RMS", format: "db" },
+  { key: "lowGainReductionDb", label: "Low GR", format: "gr" },
+  { key: "midGainReductionDb", label: "Mid GR", format: "gr" },
+  { key: "highGainReductionDb", label: "High GR", format: "gr" },
+  { key: "makeupGainDb", label: "Limiter Makeup", format: "signedDb" },
+  { key: "limiterGainReductionDb", label: "Limiter GR", format: "gr" },
+  { key: "outputPeakDb", label: "Out Peak", format: "db" },
+  { key: "outputRmsDb", label: "Out RMS", format: "db" },
+];
+
+const MASTER_BAND_DEFINITIONS = [
+  { key: "low", label: "Low Band", subtitle: "< 120 Hz" },
+  { key: "mid", label: "Mid Band", subtitle: "120 Hz - 3.2 kHz" },
+  { key: "high", label: "High Band", subtitle: "> 3.2 kHz" },
+];
+
+const MASTER_BAND_METRIC_DEFINITIONS = [
+  { key: "thresholdDb", label: "Threshold", format: "db" },
+  { key: "detectionDb", label: "Detect", format: "db" },
+  { key: "attackMs", label: "Attack", format: "ms" },
+  { key: "releaseMs", label: "Release", format: "ms" },
+  { key: "crestDb", label: "Crest", format: "db" },
+  { key: "gainReductionDb", label: "GR", format: "gr" },
+];
 
 const percVoiceScalarDefinitions = [
   { key: "tuning", label: "Tuning", min: 20, max: 12000, step: 1, transform: "log" },
@@ -104,6 +199,11 @@ let appState = null;
 let voiceViews = new Map();
 let analyserBuffer = null;
 let nextVoiceId = 1;
+let masterMeterOutputs = new Map();
+let masterBandMetricOutputs = new Map();
+let lastMasterMetrics = null;
+let masterBusMeasurementTimer = null;
+const MASTER_BUS_MEASUREMENT_DEBOUNCE_MS = 260;
 
 bootstrap().catch((error) => {
   console.error(error);
@@ -138,11 +238,24 @@ async function bootstrap() {
   appState = state;
   nextVoiceId = appState.voices.reduce((maxVoiceId, voice) => Math.max(maxVoiceId, voice.voiceId), 0) + 1;
 
+  buildMasterBusModeSelect();
+  buildMasterBusControls();
+  buildMasterBusMeters();
+  buildMasterBandReadouts();
   wireGlobalActions();
   renderVoiceCards();
+  renderMasterBusControls();
+  renderMasterBusMeters();
+  renderMasterBandReadouts();
 
   engine.onStep = ({ stepIndex, amplitudes }) => {
     updateStepGrid(stepIndex, amplitudes);
+  };
+  engine.onMasterMeter = (metrics) => {
+    lastMasterMetrics = metrics;
+    renderMasterBusMeters(metrics);
+    renderMasterBandReadouts(metrics);
+    renderMasterBusStatus(metrics);
   };
 
   refreshTransportControls();
@@ -217,6 +330,7 @@ function buildInitialAppState() {
         tempo: restoredSession.tempo,
         activeVoiceId: activeVoiceExists ? restoredSession.activeVoiceId : restoredVoices[0].voiceId,
         voices: restoredVoices,
+        masterBus: restoredSession.masterBus ?? createDefaultMasterBusState(),
       },
     };
   }
@@ -244,6 +358,7 @@ function buildInitialAppState() {
       tempo: 118,
       activeVoiceId: firstVoice.voiceId,
       voices: [firstVoice],
+      masterBus: createDefaultMasterBusState(),
     },
   };
 }
@@ -298,7 +413,303 @@ function getActiveVoice() {
   return getVoiceById(appState.activeVoiceId) ?? appState.voices[0] ?? null;
 }
 
+function buildMasterBusControls() {
+  elements.masterBusControls.textContent = "";
+
+  MASTER_BUS_TOGGLE_DEFINITIONS.forEach((definition) => {
+    const label = document.createElement("label");
+    label.className = "master-toggle";
+    label.dataset.masterBusKey = definition.key;
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "master-toggle-title";
+
+    const title = document.createElement("span");
+    title.textContent = definition.label;
+
+    const indicator = document.createElement("span");
+    indicator.className = "master-toggle-indicator";
+    indicator.dataset.masterBusIndicator = definition.key;
+
+    titleRow.append(title, indicator);
+
+    const description = document.createElement("p");
+    description.className = "master-toggle-description";
+    description.textContent = definition.description;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.masterBusKey = definition.key;
+    input.setAttribute("aria-label", definition.label);
+
+    label.append(titleRow, description, input);
+    elements.masterBusControls.append(label);
+  });
+}
+
+function buildMasterBusModeSelect() {
+  elements.masterBusModeSelect.textContent = "";
+
+  MASTER_BUS_MODE_DEFINITIONS.forEach((definition) => {
+    const option = document.createElement("option");
+    option.value = definition.key;
+    option.textContent = definition.label;
+    elements.masterBusModeSelect.append(option);
+  });
+}
+
+function buildMasterBusMeters() {
+  elements.masterBusMeters.textContent = "";
+  masterMeterOutputs = new Map();
+
+  MASTER_BUS_METER_DEFINITIONS.forEach((definition) => {
+    const card = document.createElement("article");
+    card.className = "master-meter-card";
+
+    const label = document.createElement("span");
+    label.className = "master-meter-label";
+    label.textContent = definition.label;
+
+    const value = document.createElement("output");
+    value.className = "master-meter-value";
+    value.textContent = "—";
+
+    card.append(label, value);
+    elements.masterBusMeters.append(card);
+    masterMeterOutputs.set(definition.key, value);
+  });
+}
+
+function buildMasterBandReadouts() {
+  elements.masterBandReadouts.textContent = "";
+  masterBandMetricOutputs = new Map();
+
+  MASTER_BAND_DEFINITIONS.forEach((bandDefinition) => {
+    const card = document.createElement("article");
+    card.className = "master-band-card";
+
+    const head = document.createElement("div");
+    head.className = "master-band-head";
+
+    const title = document.createElement("span");
+    title.className = "master-band-title";
+    title.textContent = bandDefinition.label;
+
+    const subtitle = document.createElement("span");
+    subtitle.className = "master-band-subtitle";
+    subtitle.textContent = bandDefinition.subtitle;
+
+    head.append(title, subtitle);
+
+    const metrics = document.createElement("div");
+    metrics.className = "master-band-metrics";
+
+    const outputs = new Map();
+
+    MASTER_BAND_METRIC_DEFINITIONS.forEach((metricDefinition) => {
+      const metric = document.createElement("div");
+      metric.className = "master-band-metric";
+
+      const label = document.createElement("span");
+      label.className = "master-band-metric-label";
+      label.textContent = metricDefinition.label;
+
+      const value = document.createElement("output");
+      value.className = "master-band-metric-value";
+      value.textContent = "—";
+
+      metric.append(label, value);
+      metrics.append(metric);
+      outputs.set(metricDefinition.key, value);
+    });
+
+    card.append(head, metrics);
+    elements.masterBandReadouts.append(card);
+    masterBandMetricOutputs.set(bandDefinition.key, outputs);
+  });
+}
+
+function renderMasterBusControls() {
+  const masterBusMode = appState?.masterBus?.mode ?? "balanced";
+
+  MASTER_BUS_TOGGLE_DEFINITIONS.forEach((definition) => {
+    const label = elements.masterBusControls.querySelector(`[data-master-bus-key="${definition.key}"]`);
+    const input = elements.masterBusControls.querySelector(`input[data-master-bus-key="${definition.key}"]`);
+    const indicator = elements.masterBusControls.querySelector(`[data-master-bus-indicator="${definition.key}"]`);
+    const enabled = Boolean(appState?.masterBus?.[definition.key]);
+
+    if (!(label instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !(indicator instanceof HTMLElement)) {
+      return;
+    }
+
+    input.checked = enabled;
+    indicator.textContent = enabled ? "On" : "Off";
+    label.classList.toggle("is-enabled", enabled);
+    label.classList.toggle("is-disabled", !enabled);
+  });
+
+  if (elements.masterBusModeSelect instanceof HTMLSelectElement) {
+    elements.masterBusModeSelect.value = masterBusMode;
+  }
+
+  if (elements.masterBusModeNote instanceof HTMLElement) {
+    elements.masterBusModeNote.textContent = getMasterBusModeDescription(masterBusMode);
+  }
+
+  renderMasterBusStatus(lastMasterMetrics);
+}
+
+function renderMasterBusMeters(metrics = null) {
+  MASTER_BUS_METER_DEFINITIONS.forEach((definition) => {
+    const output = masterMeterOutputs.get(definition.key);
+
+    if (!(output instanceof HTMLOutputElement || output instanceof HTMLElement)) {
+      return;
+    }
+
+    output.textContent = formatMasterMeterValue(definition.format, metrics?.[definition.key]);
+  });
+}
+
+function renderMasterBandReadouts(metrics = null) {
+  MASTER_BAND_DEFINITIONS.forEach((bandDefinition) => {
+    const outputs = masterBandMetricOutputs.get(bandDefinition.key);
+    const bandMetrics = metrics?.bands?.[bandDefinition.key] ?? null;
+
+    if (!(outputs instanceof Map)) {
+      return;
+    }
+
+    MASTER_BAND_METRIC_DEFINITIONS.forEach((metricDefinition) => {
+      const output = outputs.get(metricDefinition.key);
+
+      if (!(output instanceof HTMLOutputElement || output instanceof HTMLElement)) {
+        return;
+      }
+
+      output.textContent = formatMasterMeterValue(metricDefinition.format, bandMetrics?.[metricDefinition.key]);
+    });
+  });
+}
+
+function formatMasterMeterValue(format, value) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+
+  if (format === "signedDb") {
+    return `${value >= 0 ? "+" : ""}${value.toFixed(1)} dB`;
+  }
+
+  if (format === "gr") {
+    return `${Math.max(0, value).toFixed(1)} dB`;
+  }
+
+  if (format === "ms") {
+    return `${value.toFixed(1)} ms`;
+  }
+
+  return `${value.toFixed(1)} dB`;
+}
+
+function getMasterBusToggleLabel(toggleKey) {
+  return MASTER_BUS_TOGGLE_DEFINITIONS.find((definition) => definition.key === toggleKey)?.label ?? toggleKey;
+}
+
+function getMasterBusModeLabel(modeKey) {
+  return MASTER_BUS_MODE_DEFINITIONS.find((definition) => definition.key === modeKey)?.label ?? modeKey;
+}
+
+function getMasterBusModeDescription(modeKey) {
+  return (
+    MASTER_BUS_MODE_DEFINITIONS.find((definition) => definition.key === modeKey)?.description ??
+    MASTER_BUS_MODE_DEFINITIONS[0].description
+  );
+}
+
+function renderMasterBusStatus(metrics = null) {
+  if (!appState?.masterBus?.enabled) {
+    elements.masterBusStatus.textContent = "Master Bus gebypasst. Das Signal laeuft direkt vom Synth zum Ausgang.";
+    return;
+  }
+
+  const activeStages = MASTER_BUS_TOGGLE_DEFINITIONS
+    .filter((definition) => definition.key !== "enabled" && appState.masterBus[definition.key])
+    .map((definition) => definition.label);
+  const measurement = metrics?.measurement ?? null;
+  const modeLabel = getMasterBusModeLabel(appState.masterBus.mode);
+  const stageSummary = activeStages.length
+    ? `Aktiv: ${activeStages.join(", ")}.`
+    : "Alle internen Stufen sind gebypasst.";
+
+  if (measurement?.phase === "measuring") {
+    const remainingSteps = Number.isFinite(measurement.remainingSteps) ? measurement.remainingSteps : null;
+    elements.masterBusStatus.textContent = `Modus ${modeLabel} · misst gerade${remainingSteps !== null ? `, noch ca. ${remainingSteps} Steps` : ""}. ${stageSummary}`;
+    return;
+  }
+
+  if (measurement?.phase === "armed") {
+    elements.masterBusStatus.textContent = `Modus ${modeLabel} · wartet auf das naechste Signal fuer eine neue Messung. ${stageSummary}`;
+    return;
+  }
+
+  if (measurement?.phase === "frozen") {
+    const totalSteps = Number.isFinite(measurement.totalSteps) ? measurement.totalSteps : 16;
+    elements.masterBusStatus.textContent = `Modus ${modeLabel} · Werte nach ${totalSteps} Steps eingefroren. ${stageSummary}`;
+    return;
+  }
+
+  elements.masterBusStatus.textContent = `Modus ${modeLabel}. ${stageSummary}`;
+}
+
+function clearPendingMasterBusMeasurement() {
+  if (masterBusMeasurementTimer !== null) {
+    window.clearTimeout(masterBusMeasurementTimer);
+    masterBusMeasurementTimer = null;
+  }
+}
+
+function scheduleMasterBusMeasurement({ immediate = false } = {}) {
+  clearPendingMasterBusMeasurement();
+
+  if (immediate) {
+    engine.requestMasterBusMeasurement();
+    return;
+  }
+
+  masterBusMeasurementTimer = window.setTimeout(() => {
+    masterBusMeasurementTimer = null;
+    engine.requestMasterBusMeasurement();
+  }, MASTER_BUS_MEASUREMENT_DEBOUNCE_MS);
+}
+
 function wireGlobalActions() {
+  elements.masterBusModeSelect.addEventListener("change", () => {
+    appState.masterBus.mode = elements.masterBusModeSelect.value;
+    renderMasterBusControls();
+    syncAll({ measureMasterBus: "immediate" });
+    setStatus(`Master-Bus-Modus: ${getMasterBusModeLabel(appState.masterBus.mode)}.`);
+  });
+
+  elements.masterBusControls.addEventListener("change", (event) => {
+    const input = event.target;
+
+    if (!(input instanceof HTMLInputElement) || input.type !== "checkbox") {
+      return;
+    }
+
+    const toggleKey = input.dataset.masterBusKey;
+
+    if (!toggleKey || !(toggleKey in appState.masterBus)) {
+      return;
+    }
+
+    appState.masterBus[toggleKey] = input.checked;
+    renderMasterBusControls();
+    syncAll({ measureMasterBus: "immediate" });
+    setStatus(`Master-Bus: ${getMasterBusToggleLabel(toggleKey)} ${input.checked ? "aktiviert" : "deaktiviert"}.`);
+  });
+
   elements.presetSelect.addEventListener("change", () => {
     refreshLoadPresetButton();
   });
@@ -376,7 +787,7 @@ function wireGlobalActions() {
     appState.voices.push(newVoice);
     setActiveVoice(newVoice.voiceId, { renderCards: false });
     renderVoiceCards();
-    syncAll();
+    syncAll({ measureMasterBus: "immediate" });
     setStatus(`Voice ${appState.voices.length} hinzugefuegt.`);
   });
 
@@ -1049,7 +1460,7 @@ function removeVoice(voiceId) {
   }
 
   renderVoiceCards();
-  syncAll();
+  syncAll({ measureMasterBus: "immediate" });
   setStatus(`Voice entfernt. ${appState.voices.length} Voices aktiv.`);
 }
 
@@ -1072,10 +1483,15 @@ function loadPresetStack(presetId) {
     refreshTransportControls();
   }
 
+  if (preset.masterBusMode) {
+    appState.masterBus.mode = preset.masterBusMode;
+    renderMasterBusControls();
+  }
+
   renderVoiceCards();
-  syncAll();
+  syncAll({ measureMasterBus: "immediate" });
   setStatus(
-    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}`,
+    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}${preset.masterBusMode ? ` Modus ${getMasterBusModeLabel(preset.masterBusMode)}.` : ""}`,
   );
 }
 
@@ -1096,7 +1512,7 @@ function switchVoiceType(voiceId, nextVoiceType) {
   voice.voiceType = normalizedNextVoiceType;
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
-  syncAll({ resetVoiceIds: [voiceId] });
+  syncAll({ resetVoiceIds: [voiceId], measureMasterBus: "immediate" });
   setStatus(`Voice ${voiceIndex + 1} auf ${getVoiceTypeLabel(voice.voiceType)} umgestellt.`);
 }
 
@@ -1242,7 +1658,7 @@ function randomizeVoice(voiceId) {
 
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
-  syncAll({ resetVoiceIds: [voiceId] });
+  syncAll({ resetVoiceIds: [voiceId], measureMasterBus: "immediate" });
   setStatus(`${getVoiceTypeLabel(voice.voiceType)} ${voiceIndex + 1} randomisiert. Pattern: ${describePatternSelection(voice)}.`);
 }
 
@@ -1257,7 +1673,13 @@ async function saveStackAsUserPreset() {
     currentPreset.presetName,
   );
   const presetToOverwrite = findUserPresetByName(presetName);
-  const preset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite, appState.tempo);
+  const preset = createUserPresetSnapshot(
+    appState.voices,
+    presetName,
+    presetToOverwrite,
+    appState.tempo,
+    appState.masterBus.mode,
+  );
   const nextUserPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
   const persistence = await commitUserPresetChanges(nextUserPresets);
 
@@ -1267,7 +1689,7 @@ async function saveStackAsUserPreset() {
 
   attachAllVoicesToPreset(preset);
   refreshAllVoiceViews();
-  syncAll();
+  syncAll({ measureMasterBus: "skip" });
   setStatus(describePresetSaveStatus(preset.name, persistence));
 }
 
@@ -1282,7 +1704,13 @@ async function updateUserPresetFromStack() {
   const presetName = normalizePresetName(elements.presetNameInput.value, existingPreset.name);
   const presetToOverwrite = findUserPresetByName(presetName) ?? existingPreset;
   const presetIdsToRemove = new Set([presetToOverwrite.id, existingPreset.id]);
-  const updatedPreset = createUserPresetSnapshot(appState.voices, presetName, presetToOverwrite, appState.tempo);
+  const updatedPreset = createUserPresetSnapshot(
+    appState.voices,
+    presetName,
+    presetToOverwrite,
+    appState.tempo,
+    appState.masterBus.mode,
+  );
   const nextUserPresets = [updatedPreset, ...userPresets.filter((entry) => !presetIdsToRemove.has(entry.id))];
   const persistence = await commitUserPresetChanges(nextUserPresets);
 
@@ -1292,7 +1720,7 @@ async function updateUserPresetFromStack() {
 
   attachAllVoicesToPreset(updatedPreset);
   refreshAllVoiceViews();
-  syncAll();
+  syncAll({ measureMasterBus: "skip" });
   setStatus(describePresetUpdateStatus(updatedPreset.name, persistence));
 }
 
@@ -1313,7 +1741,7 @@ async function deleteUserPresetFromStack() {
 
   detachAllVoicesFromPreset();
   refreshAllVoiceViews();
-  syncAll();
+  syncAll({ measureMasterBus: "skip" });
   setStatus(describePresetDeleteStatus(preset.name, persistence));
 }
 
@@ -1445,6 +1873,20 @@ function syncAll(options = {}) {
   renderActiveVoiceAnalysis(analysisByVoice);
   analyserBuffer = engine.analyser ? new Float32Array(engine.analyser.fftSize) : analyserBuffer;
   persistSession();
+
+  const measurementMode = options.measureMasterBus ?? "debounced";
+  const hasImmediateMeasurementTrigger =
+    measurementMode === "immediate" ||
+    Boolean(options.resetTransport) ||
+    Boolean(options.reacquireMasterBus) ||
+    (Array.isArray(options.resetVoiceIds) && options.resetVoiceIds.length > 0);
+
+  if (hasImmediateMeasurementTrigger || measurementMode === "skip") {
+    clearPendingMasterBusMeasurement();
+    return;
+  }
+
+  scheduleMasterBusMeasurement();
 }
 
 function renderActiveVoiceAnalysis(analysisByVoice = []) {

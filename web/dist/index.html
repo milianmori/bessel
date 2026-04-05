@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Rhythm Computer</title>
-    <script type="module" crossorigin src="/assets/index-Ga550RaM.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D7ryf7o_.css">
+    <script type="module" crossorigin src="/assets/index-IGLPUt57.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CEqO9K88.css">
   </head>
   <body>
     <div class="app-shell">
@@ -111,6 +111,29 @@
           </div>
         </section>
       </header>
+
+      <section class="panel master-bus-panel" aria-labelledby="master-bus-title">
+        <div class="panel-head master-bus-head">
+          <div>
+            <p class="eyebrow">Master Bus</p>
+            <h2 id="master-bus-title">Output Chain</h2>
+          </div>
+          <p class="panel-note">Einzelne Stufen des globalen Master-Busses koennen hier gebypasst werden.</p>
+        </div>
+
+        <div class="master-bus-toolbar">
+          <label class="control master-bus-mode-control">
+            <span>Compression Mode</span>
+            <select id="master-bus-mode-select"></select>
+            <p class="panel-note master-bus-mode-note" id="master-bus-mode-note"></p>
+          </label>
+        </div>
+
+        <div class="master-bus-grid" id="master-bus-controls"></div>
+        <div class="master-meter-grid" id="master-bus-meters"></div>
+        <div class="master-band-grid" id="master-band-readouts"></div>
+        <p class="status-line master-bus-status" id="master-bus-status"></p>
+      </section>
 
       <main class="layout">
         <section class="panel voices-panel">

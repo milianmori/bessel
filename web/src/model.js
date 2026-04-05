@@ -23,6 +23,15 @@ const DEFAULT_NOISE_ENV = {
 export const FIXED_MASTER_GAIN = 1;
 const DEFAULT_VOICE_TYPE = "perc";
 
+const DEFAULT_MASTER_BUS_STATE = {
+  enabled: true,
+  enableLowBand: true,
+  enableMidBand: true,
+  enableHighBand: true,
+  enableLimiter: true,
+  mode: "balanced",
+};
+
 const DEFAULT_PRESET_VALUES = {
   tuning: 440,
   size: 0.5,
@@ -97,6 +106,35 @@ export function cloneState(state) {
   };
 }
 
+export function createDefaultMasterBusState() {
+  return {
+    ...DEFAULT_MASTER_BUS_STATE,
+  };
+}
+
+export function normalizeMasterBusState(raw = {}) {
+  return {
+    enabled: readBoolean(raw.enabled, DEFAULT_MASTER_BUS_STATE.enabled),
+    enableLowBand: readBoolean(raw.enableLowBand, DEFAULT_MASTER_BUS_STATE.enableLowBand),
+    enableMidBand: readBoolean(raw.enableMidBand, DEFAULT_MASTER_BUS_STATE.enableMidBand),
+    enableHighBand: readBoolean(raw.enableHighBand, DEFAULT_MASTER_BUS_STATE.enableHighBand),
+    enableLimiter: readBoolean(raw.enableLimiter, DEFAULT_MASTER_BUS_STATE.enableLimiter),
+    mode: normalizeMasterBusMode(raw.mode),
+  };
+}
+
+export function serializeMasterBusState(state) {
+  return {
+    ...normalizeMasterBusState(state),
+  };
+}
+
+export function normalizeMasterBusMode(value) {
+  return ["balanced", "aggressive", "punch", "smooth", "glue", "air"].includes(value)
+    ? value
+    : DEFAULT_MASTER_BUS_STATE.mode;
+}
+
 export function createPresetFromVoice(voice, metadata = {}) {
   return createPresetFromVoices([voice], metadata);
 }
@@ -113,6 +151,7 @@ export function createPresetFromVoices(voices, metadata = {}) {
     data: {
       voices,
       tempo: metadata.tempo ?? null,
+      masterBusMode: metadata.masterBusMode ?? null,
     },
   });
 }
@@ -171,6 +210,10 @@ export function serializePresetState(preset) {
 
   if (normalized.tempo !== null) {
     serializedPreset.tempo = normalized.tempo;
+  }
+
+  if (normalized.masterBusMode) {
+    serializedPreset.masterBusMode = normalized.masterBusMode;
   }
 
   return serializedPreset;
@@ -379,6 +422,7 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
   const voices = normalizePresetVoices(data);
   const primaryVoice = voices[0] ?? normalizeVoicePayload(data);
   const tempo = normalizePresetTempo(data?.tempo ?? data?.bpm);
+  const masterBusMode = normalizePresetMasterBusMode(data?.masterBusMode ?? data?.masterBus?.mode);
 
   return {
     id: normalizePresetId(id) ?? Date.now(),
@@ -389,6 +433,7 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
     voices,
     ...primaryVoice,
     tempo,
+    masterBusMode,
   };
 }
 
@@ -585,6 +630,22 @@ function readScalar(value, fallback) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function readBoolean(value, fallback) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === 1 || value === "1" || value === "true") {
+    return true;
+  }
+
+  if (value === 0 || value === "0" || value === "false") {
+    return false;
+  }
+
+  return fallback;
+}
+
 function normalizePresetId(value) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -622,6 +683,14 @@ function normalizeTimestamp(value) {
 function normalizePresetTempo(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function normalizePresetMasterBusMode(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  return normalizeMasterBusMode(value);
 }
 
 function sanitizeName(value, fallback) {
