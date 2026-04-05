@@ -5,6 +5,7 @@ import {
   serializePresetState,
   serializeVoiceState,
 } from "./model.js";
+import bundledUserPresetsUrl from "../ersatz-bessel-user-presets.md?url";
 
 const USER_PRESETS_KEY = "ersatz-bessel:user-presets:v2";
 const SESSION_KEY = "ersatz-bessel:session:v1";
@@ -23,7 +24,21 @@ export async function loadUserPresets() {
     return filePresets;
   }
 
-  return readCachedUserPresets();
+  const cachedPayload = readCachedUserPresetPayload();
+  const cachedPresets = normalizeCachedUserPresets(cachedPayload);
+
+  if (hasCachedUserPresets(cachedPayload)) {
+    return cachedPresets;
+  }
+
+  const bundledPresets = await loadBundledUserPresets();
+
+  if (bundledPresets.length) {
+    writeUserPresetCache(bundledPresets);
+    return bundledPresets;
+  }
+
+  return cachedPresets;
 }
 
 export async function persistUserPresets(userPresets) {
@@ -124,8 +139,15 @@ function sortUserPresets(left, right) {
   return left.name.localeCompare(right.name, "de", { sensitivity: "base" });
 }
 
-function readCachedUserPresets() {
-  const payload = readJson(USER_PRESETS_KEY);
+function readCachedUserPresetPayload() {
+  return readJson(USER_PRESETS_KEY);
+}
+
+function hasCachedUserPresets(payload) {
+  return Array.isArray(payload?.presets);
+}
+
+function normalizeCachedUserPresets(payload) {
   const presets = Array.isArray(payload?.presets) ? payload.presets : [];
 
   return dedupeUserPresetsByName(
@@ -158,6 +180,22 @@ async function loadUserPresetsFromMarkdownFile() {
     console.warn("Preset-Markdown konnte nicht geladen werden.", error);
     await forgetPresetFileHandle();
     return null;
+  }
+}
+
+async function loadBundledUserPresets() {
+  try {
+    const response = await fetch(bundledUserPresetsUrl);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const markdown = await response.text();
+    return parsePresetMarkdownDocument(markdown);
+  } catch (error) {
+    console.warn("Gebuendeltes Preset-Markdown konnte nicht geladen werden.", error);
+    return [];
   }
 }
 

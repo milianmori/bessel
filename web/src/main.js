@@ -1,6 +1,7 @@
 import {
   cloneState,
   formatValue,
+  loadPresets,
   restoreVoiceState,
   summarizeFrequencies,
   summarizeWeights,
@@ -86,6 +87,7 @@ const kickVoiceScalarDefinitions = [
 ];
 
 let presets = [];
+let factoryPresets = [];
 let userPresets = [];
 let appState = null;
 let voiceViews = new Map();
@@ -99,7 +101,26 @@ bootstrap().catch((error) => {
 
 async function bootstrap() {
   buildStepGrid();
-  userPresets = await loadUserPresets();
+  const presetWarnings = [];
+  const [factoryPresetResult, userPresetResult] = await Promise.allSettled([
+    loadPresets(),
+    loadUserPresets(),
+  ]);
+
+  if (factoryPresetResult.status === "fulfilled") {
+    factoryPresets = factoryPresetResult.value;
+  } else {
+    console.error(factoryPresetResult.reason);
+    presetWarnings.push("Factory-Presets konnten nicht geladen werden.");
+  }
+
+  if (userPresetResult.status === "fulfilled") {
+    userPresets = userPresetResult.value;
+  } else {
+    console.error(userPresetResult.reason);
+    presetWarnings.push("User-Presets konnten nicht geladen werden.");
+  }
+
   rebuildPresetCatalog();
 
   const { state, restoredSession } = buildInitialAppState();
@@ -119,6 +140,8 @@ async function bootstrap() {
 
   if (restoredSession) {
     setStatus("Letzte Session wiederhergestellt. Audio bleibt bis zum naechsten Start gestoppt.");
+  } else if (presetWarnings.length) {
+    setStatus(`${presetWarnings.join(" ")} Audio bleibt nutzbar.`);
   }
 }
 
@@ -215,7 +238,7 @@ function buildInitialAppState() {
 }
 
 function rebuildPresetCatalog() {
-  presets = [...userPresets];
+  presets = [...userPresets, ...factoryPresets];
 }
 
 function findPresetById(presetId) {
@@ -720,7 +743,7 @@ function populateGlobalPresetSelect(currentPreset) {
 
   const placeholderOption = document.createElement("option");
   placeholderOption.value = "";
-  placeholderOption.textContent = presets.length ? "Preset waehlen" : "Keine Presets gespeichert";
+  placeholderOption.textContent = presets.length ? "Preset waehlen" : "Keine Presets verfuegbar";
   placeholderOption.disabled = !presets.length;
   elements.presetSelect.append(placeholderOption);
 
