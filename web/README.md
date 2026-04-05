@@ -45,6 +45,10 @@ Der Script published immer nach:
 https://ersatz-bessel-milian-20260404.surge.sh/
 ```
 
+Die Datei `ersatz-bessel-user-presets.md` wird vor `dev`, `build` und `preview`
+automatisch nach `public/ersatz-bessel-user-presets.md` gespiegelt und ist danach
+unter der festen URL `/ersatz-bessel-user-presets.md` erreichbar.
+
 Voraussetzung ist, dass `surge` auf deinem System verfuegbar ist, zum Beispiel ueber:
 
 ```bash

@@ -5,7 +5,6 @@ import {
   serializePresetState,
   serializeVoiceState,
 } from "./model.js";
-import bundledUserPresetsUrl from "../ersatz-bessel-user-presets.md?url";
 
 const USER_PRESETS_KEY = "ersatz-bessel:user-presets:v2";
 const SESSION_KEY = "ersatz-bessel:session:v1";
@@ -13,25 +12,30 @@ const PRESET_FILE_DB_NAME = "ersatz-bessel-file-handles";
 const PRESET_FILE_STORE_NAME = "handles";
 const USER_PRESET_FILE_HANDLE_KEY = "user-presets-markdown-v2";
 const USER_PRESET_FILE_NAME = "ersatz-bessel-user-presets.md";
+const BUNDLED_USER_PRESETS_URL = `${import.meta.env.BASE_URL}${USER_PRESET_FILE_NAME}`;
 
 let runtimePresetFileHandle = null;
 
 export async function loadUserPresets() {
   const filePresets = await loadUserPresetsFromMarkdownFile();
 
-  if (filePresets) {
+  if (filePresets !== null) {
     writeUserPresetCache(filePresets);
     return filePresets;
   }
 
   const cachedPayload = readCachedUserPresetPayload();
   const cachedPresets = normalizeCachedUserPresets(cachedPayload);
+  const bundledPresets = await loadBundledUserPresets();
+
+  if (shouldPreferBundledUserPresets(bundledPresets, cachedPresets, cachedPayload)) {
+    writeUserPresetCache(bundledPresets);
+    return bundledPresets;
+  }
 
   if (hasCachedUserPresets(cachedPayload)) {
     return cachedPresets;
   }
-
-  const bundledPresets = await loadBundledUserPresets();
 
   if (bundledPresets.length) {
     writeUserPresetCache(bundledPresets);
@@ -186,7 +190,7 @@ async function loadUserPresetsFromMarkdownFile() {
 
 async function loadBundledUserPresets() {
   try {
-    const response = await fetch(bundledUserPresetsUrl);
+    const response = await fetch(BUNDLED_USER_PRESETS_URL);
 
     if (!response.ok) {
       return [];
@@ -215,6 +219,25 @@ function parsePresetMarkdownDocument(markdown) {
     .filter(Boolean)
     .sort(sortUserPresets),
   );
+}
+
+function shouldPreferBundledUserPresets(bundledPresets, cachedPresets, cachedPayload) {
+  if (!bundledPresets.length) {
+    return false;
+  }
+
+  if (!hasCachedUserPresets(cachedPayload)) {
+    return true;
+  }
+
+  return getLatestPresetTimestamp(bundledPresets) >= getLatestPresetTimestamp(cachedPresets);
+}
+
+function getLatestPresetTimestamp(presets) {
+  return presets.reduce((latest, preset) => {
+    const timestamp = Math.max(Number(preset?.updatedAt) || 0, Number(preset?.createdAt) || 0);
+    return Math.max(latest, timestamp);
+  }, 0);
 }
 
 function dedupeUserPresetsByName(userPresets) {
