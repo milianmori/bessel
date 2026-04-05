@@ -10,20 +10,32 @@
     <div class="app-shell">
       <header class="hero panel">
         <div class="hero-copy">
-          <div class="hero-titlebar">
-            <div>
-              <p class="eyebrow">Layered Instrument</p>
-              <h1>Rhythm Computer</h1>
-            </div>
-            <button id="random-tempo-button" type="button" class="ghost">BPM random</button>
-          </div>
+          <p class="eyebrow">Layered Instrument</p>
+          <h1>Rhythm Computer</h1>
           <p class="lede">
             Mehrere Voices teilen sich einen Transport. Jede Voice hat eigene Exciter-, Modal-
             und Envelope-Settings, nur das BPM bleibt global.
           </p>
         </div>
 
-        <div class="transport-cluster">
+        <div class="header-stack">
+          <div class="header-toolbar">
+            <div class="button-row header-transport-buttons">
+              <button id="start-button" type="button">Start</button>
+              <button id="trigger-button" type="button" class="ghost">Trigger</button>
+              <button id="add-voice-button" type="button" class="ghost">+ Voice</button>
+              <button id="random-tempo-button" type="button" class="ghost">BPM Random</button>
+            </div>
+
+            <label class="control header-tempo-control">
+              <span>Tempo</span>
+              <div class="value-row">
+                <output id="tempo-output">118 BPM</output>
+              </div>
+              <input id="tempo-input" type="range" min="48" max="192" step="1" value="118" />
+            </label>
+          </div>
+
           <div class="header-preset-panel">
             <div class="panel-head header-preset-head">
               <div>
@@ -48,49 +60,21 @@
                 />
               </label>
               <div class="button-row header-preset-buttons">
-                <button id="load-preset-button" type="button" class="ghost">Preset laden</button>
-                <button id="save-preset-button" type="button" class="ghost">Preset sichern</button>
-                <button id="update-preset-button" type="button" class="ghost">Preset updaten</button>
-                <button id="delete-preset-button" type="button" class="ghost danger">Preset loeschen</button>
+                <button id="save-preset-button" type="button" class="ghost">Sichern</button>
+                <button id="update-preset-button" type="button" class="ghost">Update</button>
+                <button id="load-preset-button" type="button" class="ghost">Laden</button>
+                <button id="delete-preset-button" type="button" class="ghost danger">Loeschen</button>
               </div>
             </div>
 
             <p class="status-line header-preset-state" id="preset-state-line"></p>
           </div>
 
-          <label class="control">
-            <span>Tempo</span>
-            <div class="value-row">
-              <output id="tempo-output">118 BPM</output>
-            </div>
-            <input id="tempo-input" type="range" min="48" max="192" step="1" value="118" />
-          </label>
-
-          <div class="button-row">
-            <button id="start-button" type="button">Audio starten</button>
-            <button id="trigger-button" type="button" class="ghost">Einzelschlag</button>
-            <button id="add-voice-button" type="button" class="ghost">+ Voice</button>
-          </div>
-
           <div class="step-grid" id="step-grid" aria-label="Gemeinsamer Step-Sequencer Status"></div>
           <p class="status-line" id="status-line">Audio noch nicht initialisiert.</p>
         </div>
-      </header>
 
-      <main class="layout">
-        <section class="panel voices-panel">
-          <div class="panel-head">
-            <div>
-              <p class="eyebrow">Voices</p>
-              <h2>Layer Stack</h2>
-            </div>
-            <p class="panel-note">Mit `+ Voice` wird die aktive Voice geklont.</p>
-          </div>
-
-          <div class="voice-list" id="voice-list"></div>
-        </section>
-
-        <section class="panel analysis-panel">
+        <section class="analysis-panel header-analysis-panel">
           <div class="panel-head">
             <div>
               <p class="eyebrow">Analyse</p>
@@ -124,6 +108,20 @@
               <canvas id="scope-canvas" class="viz-canvas viz-canvas-wide" width="1280" height="240"></canvas>
             </article>
           </div>
+        </section>
+      </header>
+
+      <main class="layout">
+        <section class="panel voices-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Voices</p>
+              <h2>Layer Stack</h2>
+            </div>
+            <p class="panel-note">Mit `+ Voice` wird die aktive Voice geklont.</p>
+          </div>
+
+          <div class="voice-list" id="voice-list"></div>
         </section>
       </main>
     </div>

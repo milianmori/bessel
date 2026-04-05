@@ -379,7 +379,7 @@ function wireGlobalActions() {
 function refreshTransportControls() {
   elements.tempoInput.value = String(toSliderValue(tempoDefinition, appState.tempo));
   elements.tempoOutput.textContent = formatValue("tempo", appState.tempo);
-  elements.startButton.textContent = appState.running ? "Audio stoppen" : "Audio starten";
+  elements.startButton.textContent = appState.running ? "Stop" : "Start";
 }
 
 function randomizeTempo() {
@@ -412,19 +412,18 @@ function createVoiceCardShell(voice, index) {
   root.dataset.voiceId = String(voice.voiceId);
   root.innerHTML = `
     <div class="voice-card-head">
-      <div>
-        <p class="eyebrow">Voice ${index + 1}</p>
+      <div class="voice-card-copy">
+        <p class="eyebrow">Layer</p>
         <h2 class="voice-card-title"></h2>
+        <p class="voice-state-line"></p>
       </div>
       <div class="button-row voice-actions">
-        <button type="button" class="ghost voice-focus-button">Analyse</button>
-        <button type="button" class="ghost voice-random-button">Random Voice ${index + 1}</button>
+        <button type="button" class="ghost voice-focus-button">Fokus</button>
         <button type="button" class="ghost voice-mute-button"></button>
+        <button type="button" class="ghost voice-random-button">Random</button>
         ${appState.voices.length > 1 ? '<button type="button" class="ghost danger voice-remove-button">Entfernen</button>' : ""}
       </div>
     </div>
-
-    <p class="voice-state-line"></p>
 
     <div class="voice-card-grid">
       <section class="voice-subpanel">
@@ -450,7 +449,7 @@ function createVoiceCardShell(voice, index) {
             <p class="eyebrow">Click Buffer</p>
             <h3>Click Shape</h3>
           </div>
-          <p class="panel-note">64-Sample-Multislider pro Voice.</p>
+          <p class="panel-note">64 Samples pro Voice.</p>
         </div>
         <canvas class="editor-canvas compact-editor-canvas voice-click-canvas" width="960" height="220"></canvas>
       </section>
@@ -462,8 +461,8 @@ function createVoiceCardShell(voice, index) {
             <h3>nz_env Function</h3>
           </div>
           <div class="button-row">
-            <button type="button" class="ghost voice-add-point-button">Punkt addieren</button>
-            <button type="button" class="ghost voice-remove-point-button">Punkt entfernen</button>
+            <button type="button" class="ghost voice-add-point-button">Punkt +</button>
+            <button type="button" class="ghost voice-remove-point-button">Punkt -</button>
           </div>
         </div>
         <canvas class="editor-canvas tall-editor-canvas voice-envelope-canvas" width="960" height="280"></canvas>
@@ -480,10 +479,10 @@ function createVoiceCardShell(voice, index) {
         <div class="panel-head voice-subhead">
           <div>
             <p class="eyebrow">Step Pattern</p>
-            <h3>Amp Multislider</h3>
+            <h3>Pattern</h3>
           </div>
           <div class="button-row">
-            <button type="button" class="ghost voice-pattern-refresh-button">Pattern neu</button>
+            <button type="button" class="ghost voice-pattern-refresh-button">Neu</button>
           </div>
         </div>
         <div class="controls-grid voice-pattern-controls">
@@ -496,7 +495,7 @@ function createVoiceCardShell(voice, index) {
             <select class="voice-pattern-mode-select"></select>
           </label>
         </div>
-        <p class="panel-note">16 Trigger-Staerken pro Voice. Unter Rhythm liegen alle Pattern jetzt in einer gemeinsamen Liste; danach bleibt der Multislider frei editierbar.</p>
+        <p class="panel-note">16 Trigger-Staerken. Rhythm liefert Vorlagen, danach bleibt der Slider frei editierbar.</p>
         <canvas class="editor-canvas compact-editor-canvas voice-amps-canvas" width="960" height="220"></canvas>
       </section>
     </div>
@@ -887,12 +886,11 @@ function refreshVoiceView(view) {
   }
 
   view.typeSelect.value = voice.voiceType;
-  view.title.textContent = voice.voiceType === "kick" ? "Kick Layer" : "Perc Layer";
+  view.title.textContent = `Voice ${voiceIndex + 1}: ${voice.voiceType === "kick" ? "Kick Layer" : "Perc Layer"}`;
   view.macroTitle.textContent = voice.voiceType === "kick" ? "Kick Settings" : "Voice Settings";
   view.stateLine.textContent = describeVoiceState(voice);
-  view.randomButton.textContent =
-    voice.voiceType === "kick" ? `Random Kick ${voiceIndex + 1}` : `Random Voice ${voiceIndex + 1}`;
-  view.muteButton.textContent = voice.muted ? "Unmute" : "Mute";
+  view.randomButton.textContent = voice.voiceType === "kick" ? "Random Kick" : "Random";
+  view.muteButton.textContent = voice.muted ? "An" : "Stumm";
   refreshVoicePatternControls(view, voice);
 
   getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
@@ -933,7 +931,7 @@ function refreshActiveVoiceStyles() {
   voiceViews.forEach((view, voiceId) => {
     const isActive = appState.activeVoiceId === voiceId;
     view.root.classList.toggle("is-active", isActive);
-    view.focusButton.textContent = isActive ? "Analyse aktiv" : "Analyse";
+    view.focusButton.textContent = isActive ? "Im Fokus" : "Fokus";
   });
 }
 
@@ -1310,36 +1308,24 @@ function describePresetState(currentPreset) {
   const voiceLabel = `${voiceCount} Voice${voiceCount === 1 ? "" : "s"}`;
 
   if (currentPreset.presetSource === "user") {
-    return `Preset "${currentPreset.presetName}" aktiv. Update schreibt den gesamten Stack mit ${voiceLabel}.`;
+    return `${voiceLabel} · User-Preset "${currentPreset.presetName}" aktiv.`;
   }
 
   if (currentPreset.presetSource === "detached") {
-    return `Lokaler Layer-Stack mit ${voiceLabel}. Speichern legt immer alle Voices gemeinsam ab.`;
+    return `${voiceLabel} · Lokaler Layer-Stack.`;
   }
 
-  return `Preset "${currentPreset.presetName}" aktiv. Speichern legt daraus einen neuen Layer-Stack mit ${voiceLabel} an.`;
+  return `${voiceLabel} · Factory-Preset "${currentPreset.presetName}" aktiv.`;
 }
 
 function describeVoiceState(voice) {
-  const patternInfo = `Pattern: ${describePatternSelection(voice)}.`;
+  const stateLabel = voice.muted ? "Muted" : "Aktiv";
+  const sourceLabel =
+    voice.presetSource === "detached"
+      ? "lokal"
+      : `${voice.presetSource === "user" ? "user" : "factory"}:${voice.presetName}`;
 
-  if (voice.muted) {
-    return `Muted. Clock bleibt synchron, Output ist still. ${patternInfo}`;
-  }
-
-  if (voice.voiceType === "kick") {
-    if (voice.presetSource === "detached") {
-      return `Lokale Kick-Voice im ungespeicherten Layer-Stack. Body, Pitch Drop und Attack bleiben beim Umschalten erhalten. ${patternInfo}`;
-    }
-
-    return `Kick-Voice im aktuellen Preset-Stack. Update im Header speichert immer alle Voices gemeinsam. ${patternInfo}`;
-  }
-
-  if (voice.presetSource === "detached") {
-    return `Lokaler Session-Stand. Noch nicht als gemeinsames Preset fuer alle Voices gespeichert. ${patternInfo}`;
-  }
-
-  return `Voice im aktuellen Preset-Stack. Speichern im Header legt eine Kopie an, Update ueberschreibt den gesamten Layer-Stack. ${patternInfo}`;
+  return `${stateLabel} · ${voice.voiceType === "kick" ? "Kick" : "Perc"} · ${sourceLabel} · ${describePatternSelection(voice)}`;
 }
 
 function syncAll(options = {}) {
