@@ -8,7 +8,7 @@ import {
 } from "./model.js";
 import {
   AMP_PATTERN_SOURCE_OPTIONS,
-  PATTERN_MODE_GROUPS,
+  PATTERN_MODE_OPTIONS,
   applyPatternModeValue,
   createAmpPattern,
   describePatternSelection,
@@ -69,7 +69,7 @@ const percVoiceScalarDefinitions = [
   { key: "pitchEnvRange", label: "Pitch Env Range", min: -24, max: 24, step: 0.1 },
   { key: "pitchEnvCurve", label: "Pitch Env Curve", min: -1, max: 1, step: 0.001 },
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },
-  { key: "masterGain", label: "Master Gain", min: 0.2, max: 1.4, step: 0.001 },
+  { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
 
 const kickVoiceScalarDefinitions = [
@@ -83,7 +83,7 @@ const kickVoiceScalarDefinitions = [
   { key: "kickNoiseDecayMs", label: "Noise Decay", min: 1, max: 220, step: 0.1 },
   { key: "kickDrive", label: "Drive", min: 0, max: 1, step: 0.001 },
   { key: "kickTone", label: "Tone", min: 0, max: 1, step: 0.001 },
-  { key: "masterGain", label: "Master Gain", min: 0.2, max: 1.4, step: 0.001 },
+  { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
 
 let presets = [];
@@ -496,7 +496,7 @@ function createVoiceCardShell(voice, index) {
             <select class="voice-pattern-mode-select"></select>
           </label>
         </div>
-        <p class="panel-note">16 Trigger-Staerken pro Voice. Unter Rhythm liegen jetzt die frueheren Amp-Modi und die neuen Max-Rhythmen zusammen; danach bleibt der Multislider frei editierbar.</p>
+        <p class="panel-note">16 Trigger-Staerken pro Voice. Unter Rhythm liegen alle Pattern jetzt in einer gemeinsamen Liste; danach bleibt der Multislider frei editierbar.</p>
         <canvas class="editor-canvas compact-editor-canvas voice-amps-canvas" width="960" height="220"></canvas>
       </section>
     </div>
@@ -791,30 +791,18 @@ function populateSelectWithOptions(select, options) {
 function populatePatternModeSelect(select) {
   select.textContent = "";
 
-  PATTERN_MODE_GROUPS.forEach((groupDefinition) => {
-    const group = document.createElement("optgroup");
-    group.label = groupDefinition.label;
-
-    groupDefinition.options.forEach((option) => {
-      const element = document.createElement("option");
-      element.value = option.value;
-      element.textContent = option.label;
-      group.append(element);
-    });
-
-    select.append(group);
+  PATTERN_MODE_OPTIONS.forEach((option) => {
+    const element = document.createElement("option");
+    element.value = option.value;
+    element.textContent = option.label;
+    select.append(element);
   });
 }
 
-function getRandomPatternModeValue(currentValue = "", options = {}) {
-  const { prefix = "" } = options;
-  const allValues = PATTERN_MODE_GROUPS.flatMap((groupDefinition) =>
-    groupDefinition.options.map((option) => option.value),
-  );
-  const matchingValues = prefix ? allValues.filter((value) => value.startsWith(prefix)) : allValues;
-  const values = matchingValues.length ? matchingValues : allValues;
-  const alternatives = values.filter((value) => value !== currentValue);
-  const pool = alternatives.length ? alternatives : values;
+function getRandomPatternModeValue(currentValue = "") {
+  const allValues = PATTERN_MODE_OPTIONS.map((option) => option.value);
+  const alternatives = allValues.filter((value) => value !== currentValue);
+  const pool = alternatives.length ? alternatives : allValues;
 
   if (!pool.length) {
     return currentValue;
@@ -829,8 +817,7 @@ function randomizeVoicePatternMode(voice) {
   }
 
   const currentPatternMode = getPatternModeValue(voice);
-  const prefix = currentPatternMode.startsWith("rhythm:") ? "rhythm:" : "amp:";
-  const nextPatternMode = getRandomPatternModeValue(currentPatternMode, { prefix });
+  const nextPatternMode = getRandomPatternModeValue(currentPatternMode);
   const normalizedPatternMode = applyPatternModeValue(nextPatternMode, voice);
 
   voice.ampMode = normalizedPatternMode.ampMode;

@@ -447,7 +447,7 @@ function normalizeVoicePayload(raw = {}) {
     kickDrive: clamp(readScalar(raw.kickDrive, DEFAULT_KICK_VALUES.kickDrive), 0, 1),
     kickTone: clamp(readScalar(raw.kickTone, DEFAULT_KICK_VALUES.kickTone), 0, 1),
     tempo: DEFAULT_PRESET_VALUES.tempo,
-    masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0.2, 1.4),
+    masterGain: clamp(readScalar(raw.masterGain, DEFAULT_PRESET_VALUES.masterGain), 0, 1.4),
     running: false,
   };
 }

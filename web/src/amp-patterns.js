@@ -32,21 +32,15 @@ export const DEFAULT_RHYTHM_MODE = 0;
 const ampModeLabels = new Map(AMP_MODE_OPTIONS.map((option) => [option.value, option.label]));
 const rhythmModeLabels = new Map(RHYTHM_MODE_OPTIONS.map((option) => [option.value, option.label]));
 
-export const PATTERN_MODE_GROUPS = [
-  {
-    label: "Amp",
-    options: AMP_MODE_OPTIONS.map((option) => ({
-      value: `amp:${option.value}`,
-      label: option.label,
-    })),
-  },
-  {
-    label: "Rhythm",
-    options: RHYTHM_MODE_OPTIONS.filter((option) => option.value > 0).map((option) => ({
-      value: `rhythm:${option.value}`,
-      label: option.label,
-    })),
-  },
+export const PATTERN_MODE_OPTIONS = [
+  ...AMP_MODE_OPTIONS.map((option) => ({
+    value: `amp:${option.value}`,
+    label: option.label,
+  })),
+  ...RHYTHM_MODE_OPTIONS.filter((option) => option.value > 0).map((option) => ({
+    value: `rhythm:${option.value}`,
+    label: option.label,
+  })),
 ];
 
 export function normalizeAmpPatternSource(value) {
