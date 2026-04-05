@@ -978,6 +978,7 @@ function createVoiceCardShell(voice, index) {
       <div class="button-row voice-actions">
         <button type="button" class="ghost voice-focus-button">Fokus</button>
         <button type="button" class="ghost voice-mute-button"></button>
+        <button type="button" class="ghost voice-solo-button"></button>
         <button type="button" class="ghost voice-random-button">Random</button>
         ${appState.voices.length > 1 ? '<button type="button" class="ghost danger voice-remove-button">Entfernen</button>' : ""}
       </div>
@@ -1066,6 +1067,7 @@ function createVoiceCardShell(voice, index) {
     focusButton: root.querySelector(".voice-focus-button"),
     randomButton: root.querySelector(".voice-random-button"),
     muteButton: root.querySelector(".voice-mute-button"),
+    soloButton: root.querySelector(".voice-solo-button"),
     removeButton: root.querySelector(".voice-remove-button"),
     typeSelect: root.querySelector(".voice-type-select"),
     stateLine: root.querySelector(".voice-state-line"),
@@ -1165,6 +1167,11 @@ function initializeVoiceCard(view, voiceId, index) {
   view.muteButton.addEventListener("click", (event) => {
     event.stopPropagation();
     toggleVoiceMute(voiceId);
+  });
+
+  view.soloButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleVoiceSolo(voiceId);
   });
 
   view.typeSelect.addEventListener("change", (event) => {
@@ -1508,8 +1515,14 @@ function refreshVoiceView(view) {
   view.macroTitle.textContent = getVoiceMacroLabel(voice.voiceType);
   view.stateLine.textContent = describeVoiceState(voice);
   view.randomButton.textContent = getVoiceRandomButtonLabel(voice.voiceType);
-  view.muteButton.textContent = voice.muted ? "An" : "Stumm";
+  view.muteButton.textContent = "Mute";
+  view.soloButton.textContent = "Solo";
   view.muteButton.setAttribute("aria-pressed", String(voice.muted));
+  view.soloButton.setAttribute("aria-pressed", String(voice.solo));
+  view.muteButton.classList.toggle("is-on", voice.muted);
+  view.soloButton.classList.toggle("is-on", voice.solo);
+  view.muteButton.title = voice.muted ? `Voice ${voiceIndex + 1} entmuten` : `Voice ${voiceIndex + 1} muten`;
+  view.soloButton.title = voice.solo ? `Solo fuer Voice ${voiceIndex + 1} aus` : `Voice ${voiceIndex + 1} solo`;
   view.root.classList.toggle("is-muted", voice.muted);
   view.root.classList.toggle("is-solo", voice.solo);
   view.root.classList.toggle("is-suppressed", hasSoloVoices() && !voice.solo);

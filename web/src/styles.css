@@ -747,6 +747,18 @@ select {
   align-items: center;
 }
 
+.voice-mute-button.is-on {
+  border-color: rgba(242, 95, 92, 0.24);
+  background: rgba(242, 95, 92, 0.14);
+  color: #ffd6d5;
+}
+
+.voice-solo-button.is-on {
+  border-color: rgba(106, 177, 199, 0.24);
+  background: rgba(106, 177, 199, 0.16);
+  color: #c8f1fb;
+}
+
 .voice-state-line {
   margin: 0;
   font-size: 0.79rem;
