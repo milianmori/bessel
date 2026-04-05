@@ -4,12 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "sync:user-presets": "node scripts/sync-user-presets.mjs",
-    "predev": "npm run sync:user-presets",
     "dev": "vite",
-    "prebuild": "npm run sync:user-presets",
     "build": "vite build",
-    "prepreview": "npm run sync:user-presets",
     "preview": "vite preview",
     "deploy": "npm run build && surge dist ersatz-bessel-milian-20260404.surge.sh"
   },
