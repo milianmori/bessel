@@ -44,6 +44,7 @@ const elements = {
   randomTempoButton: document.querySelector("#random-tempo-button"),
   startButton: document.querySelector("#start-button"),
   triggerButton: document.querySelector("#trigger-button"),
+  initStateButton: document.querySelector("#init-state-button"),
   addVoiceButton: document.querySelector("#add-voice-button"),
   tempoInput: document.querySelector("#tempo-input"),
   tempoOutput: document.querySelector("#tempo-output"),
@@ -309,6 +310,29 @@ function createVoiceClone(sourceVoice) {
     presetName: sourceVoice.presetName,
     presetSource: sourceVoice.presetSource,
   });
+}
+
+function createInitStateVoice() {
+  const voice = createVoiceFromState(
+    restoreVoiceState({
+      voiceType: "perc",
+      presetId: null,
+      presetName: "Init State",
+      presetSource: "detached",
+      muted: true,
+      solo: false,
+    }),
+    {
+      muted: true,
+      solo: false,
+      presetId: null,
+      presetName: "Init State",
+      presetSource: "detached",
+    },
+  );
+
+  randomizePercVoiceState(voice);
+  return voice;
 }
 
 function createVoiceFromPreset(preset, overrides = {}) {
@@ -849,6 +873,15 @@ function wireGlobalActions() {
     engine.sync(appState);
     engine.trigger();
     setStatus("Einzelschlag fuer alle Voices ausgeloest.");
+  });
+
+  elements.initStateButton.addEventListener("click", () => {
+    const newVoice = createInitStateVoice();
+    appState.voices = [newVoice];
+    appState.activeVoiceId = newVoice.voiceId;
+    renderVoiceCards();
+    syncAll({ measureMasterBus: "immediate" });
+    setStatus("Init State geladen. Der Stack enthaelt jetzt genau eine stumme, randomisierte Perc-Voice.");
   });
 
   elements.addVoiceButton.addEventListener("click", () => {
