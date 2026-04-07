@@ -60,7 +60,7 @@ npm install -g surge
 - Mehrere layerbare Voices mit gemeinsamem BPM
 - Adaptiver Master-Bus mit Input-Leveler, 3-Band-Kompression und Safety-Limiter hinter dem Synth-Worklet
 - BPM-Randomize-Button direkt im Header
-- `+ Voice` klont die aktive Voice inklusive aller lokalen Parameter
+- Im Header gibt es getrennte `Kick`-, `Sub-Bass`- und `Perc`-Controls fuer `+` und `-`; neue Layers werden direkt randomisiert und starten mit `Master Gain` `Perc = 0.5`, `Kick = 1`, `Sub-Bass = 1`
 - Pro Voice eigene Preset-Auswahl, Randomize, Mute und Editoren
 - Pro Voice umschaltbare Step-Pattern-Quelle mit `Rhythm` (inklusive frueherer `Amp`-Modi und Max-Rhythmen wie `3-3-2` und `Euclid`) oder altem `Web`-Verhalten
 - Pro Voice ist `Master Gain` manuell steuerbar und wird von `Randomize` nicht veraendert

@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Rhythm Computer</title>
-    <script type="module" crossorigin src="/assets/index-DUGrNSGw.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-D70yzQvS.css">
+    <script type="module" crossorigin src="/assets/index-BfImfR-7.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D1U7mAcL.css">
   </head>
   <body>
     <div class="app-shell">
@@ -25,7 +25,6 @@
               <button id="start-button" type="button">Start</button>
               <button id="trigger-button" type="button" class="ghost">Trigger</button>
               <button id="init-state-button" type="button" class="ghost">Init State</button>
-              <button id="add-voice-button" type="button" class="ghost">+ Voice</button>
               <button id="random-tempo-button" type="button" class="ghost">BPM Random</button>
             </div>
 
@@ -47,8 +46,13 @@
             <div class="header-voice-strip">
               <div class="header-voice-strip-head">
                 <h2 class="header-voice-strip-title">Mutes and Solos</h2>
-                <p class="panel-note header-voice-strip-note">Label = Fokus, M = Mute, S = Solo</p>
+                <p class="panel-note header-voice-strip-note">Kick, Sub-Bass, Perc: + fuegt randomisiert hinzu, - entfernt den letzten Layer dieses Typs</p>
               </div>
+              <div
+                class="header-voice-type-controls"
+                id="header-voice-type-controls"
+                aria-label="Voice-Typen hinzufuegen oder entfernen"
+              ></div>
               <div class="header-voice-list" id="header-voice-list" aria-label="Layer Mute und Solo"></div>
             </div>
           </div>
@@ -157,7 +161,7 @@
               <p class="eyebrow">Voices</p>
               <h2>Layer Stack</h2>
             </div>
-            <p class="panel-note">Mit `+ Voice` wird die aktive Voice geklont.</p>
+            <p class="panel-note">Neue Layer kommen oben typbasiert aus dem Header und werden direkt randomisiert.</p>
           </div>
 
           <div class="voice-list" id="voice-list"></div>

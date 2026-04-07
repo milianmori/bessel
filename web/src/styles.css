@@ -431,6 +431,58 @@ h3 {
   font-size: 0.74rem;
 }
 
+.header-voice-type-controls {
+  display: grid;
+  gap: 0.42rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.header-voice-type-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.52rem 0.58rem;
+  border-radius: calc(var(--radius) - 12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    rgba(8, 12, 18, 0.4);
+}
+
+.header-voice-type-copy {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.header-voice-type-title {
+  color: var(--text);
+  font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+}
+
+.header-voice-type-count {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.header-voice-type-buttons {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.header-voice-type-button {
+  min-width: 2rem;
+  min-height: 1.9rem;
+  padding: 0.32rem 0.58rem;
+  font-size: 0.96rem;
+  line-height: 1;
+}
+
 .header-voice-list {
   display: flex;
   flex-wrap: wrap;
@@ -946,6 +998,10 @@ canvas {
   }
 
   .header-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .header-voice-type-controls {
     grid-template-columns: 1fr;
   }
 

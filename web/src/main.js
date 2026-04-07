@@ -44,11 +44,11 @@ const elements = {
   startButton: document.querySelector("#start-button"),
   triggerButton: document.querySelector("#trigger-button"),
   initStateButton: document.querySelector("#init-state-button"),
-  addVoiceButton: document.querySelector("#add-voice-button"),
   tempoInput: document.querySelector("#tempo-input"),
   tempoValueInput: document.querySelector("#tempo-value-input"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
+  headerVoiceTypeControls: document.querySelector("#header-voice-type-controls"),
   headerVoiceList: document.querySelector("#header-voice-list"),
   voiceList: document.querySelector("#voice-list"),
   masterBusModeSelect: document.querySelector("#master-bus-mode-select"),
@@ -68,6 +68,14 @@ const elements = {
 
 const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
 const segmentCurveDefinition = { key: "segmentCurve", label: "Segment Curve", min: -1, max: 1, step: 0.001 };
+const DEFAULT_NEW_PERC_MASTER_GAIN = 0.5;
+const DEFAULT_NEW_KICK_MASTER_GAIN = 1;
+const DEFAULT_NEW_SUB_BASS_MASTER_GAIN = 1;
+const HEADER_VOICE_TYPE_DEFINITIONS = [
+  { key: "kick", label: "Kick" },
+  { key: "subbass", label: "Sub-Bass" },
+  { key: "perc", label: "Perc" },
+];
 
 const MASTER_BUS_TOGGLE_DEFINITIONS = [
   {
@@ -269,6 +277,7 @@ async function bootstrap() {
   buildMasterBusControls();
   buildMasterBusMeters();
   buildMasterBandReadouts();
+  buildHeaderVoiceTypeControls();
   wireGlobalActions();
   renderVoiceCards();
   renderMasterBusControls();
@@ -305,17 +314,51 @@ function createVoiceFromState(state, overrides = {}) {
   voice.presetSource = overrides.presetSource ?? voice.presetSource ?? "detached";
   voice.muted = overrides.muted ?? Boolean(voice.muted);
   voice.solo = overrides.solo ?? Boolean(voice.solo);
+
+  if (Object.hasOwn(overrides, "masterGain")) {
+    voice.masterGain = overrides.masterGain;
+  }
+
   return voice;
 }
 
-function createVoiceClone(sourceVoice) {
-  return createVoiceFromState(sourceVoice, {
-    muted: false,
-    solo: false,
-    presetId: sourceVoice.presetId,
-    presetName: sourceVoice.presetName,
-    presetSource: sourceVoice.presetSource,
-  });
+function getDefaultMasterGainForNewVoice(voiceType) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+
+  if (normalizedVoiceType === "kick") {
+    return DEFAULT_NEW_KICK_MASTER_GAIN;
+  }
+
+  if (normalizedVoiceType === "subbass") {
+    return DEFAULT_NEW_SUB_BASS_MASTER_GAIN;
+  }
+
+  return DEFAULT_NEW_PERC_MASTER_GAIN;
+}
+
+function createDetachedVoiceByType(voiceType, overrides = {}) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+  const defaultPresetName = `${getVoiceTypeLabel(normalizedVoiceType)} Layer`;
+
+  return createVoiceFromState(
+    restoreVoiceState({
+      voiceType: normalizedVoiceType,
+      presetId: null,
+      presetName: defaultPresetName,
+      presetSource: "detached",
+      muted: false,
+      solo: false,
+    }),
+    {
+      muted: false,
+      solo: false,
+      presetId: null,
+      presetName: defaultPresetName,
+      presetSource: "detached",
+      masterGain: getDefaultMasterGainForNewVoice(normalizedVoiceType),
+      ...overrides,
+    },
+  );
 }
 
 function createInitStateVoice() {
@@ -629,6 +672,86 @@ function buildMasterBandReadouts() {
   });
 }
 
+function buildHeaderVoiceTypeControls() {
+  elements.headerVoiceTypeControls.textContent = "";
+
+  HEADER_VOICE_TYPE_DEFINITIONS.forEach((definition) => {
+    const card = document.createElement("div");
+    card.className = "header-voice-type-card";
+    card.dataset.voiceTypeControl = definition.key;
+
+    const copy = document.createElement("div");
+    copy.className = "header-voice-type-copy";
+
+    const title = document.createElement("span");
+    title.className = "header-voice-type-title";
+    title.textContent = definition.label;
+
+    const count = document.createElement("span");
+    count.className = "header-voice-type-count";
+    count.dataset.voiceTypeCount = definition.key;
+
+    copy.append(title, count);
+
+    const buttonRow = document.createElement("div");
+    buttonRow.className = "button-row header-voice-type-buttons";
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "ghost header-voice-type-button";
+    removeButton.dataset.removeVoiceType = definition.key;
+    removeButton.textContent = "-";
+    removeButton.setAttribute("aria-label", `${definition.label} entfernen`);
+
+    const addButton = document.createElement("button");
+    addButton.type = "button";
+    addButton.className = "header-voice-type-button";
+    addButton.dataset.addVoiceType = definition.key;
+    addButton.textContent = "+";
+    addButton.setAttribute("aria-label", `${definition.label} hinzufuegen`);
+
+    removeButton.addEventListener("click", () => {
+      removeLastVoiceByType(definition.key);
+    });
+
+    addButton.addEventListener("click", () => {
+      addRandomizedVoiceByType(definition.key);
+    });
+
+    buttonRow.append(removeButton, addButton);
+    card.append(copy, buttonRow);
+    elements.headerVoiceTypeControls.append(card);
+  });
+
+  refreshHeaderVoiceTypeControls();
+}
+
+function countVoicesByType(voiceType) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+  return appState.voices.filter((voice) => normalizeVoiceType(voice.voiceType) === normalizedVoiceType).length;
+}
+
+function refreshHeaderVoiceTypeControls() {
+  HEADER_VOICE_TYPE_DEFINITIONS.forEach((definition) => {
+    const count = countVoicesByType(definition.key);
+    const countOutput = elements.headerVoiceTypeControls.querySelector(`[data-voice-type-count="${definition.key}"]`);
+    const removeButton = elements.headerVoiceTypeControls.querySelector(`button[data-remove-voice-type="${definition.key}"]`);
+    const addButton = elements.headerVoiceTypeControls.querySelector(`button[data-add-voice-type="${definition.key}"]`);
+
+    if (countOutput instanceof HTMLElement) {
+      countOutput.textContent = `${count} Layer`;
+    }
+
+    if (removeButton instanceof HTMLButtonElement) {
+      removeButton.disabled = count === 0 || appState.voices.length <= 1;
+    }
+
+    if (addButton instanceof HTMLButtonElement) {
+      addButton.title = `${definition.label} hinzufuegen und randomisieren`;
+    }
+  });
+}
+
 function renderMasterBusControls() {
   const masterBusMode = appState?.masterBus?.mode ?? "balanced";
 
@@ -783,6 +906,57 @@ function scheduleMasterBusMeasurement({ immediate = false } = {}) {
   }, MASTER_BUS_MEASUREMENT_DEBOUNCE_MS);
 }
 
+function addRandomizedVoiceByType(voiceType) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+  const newVoice = createDetachedVoiceByType(normalizedVoiceType);
+
+  randomizeVoiceState(newVoice);
+  newVoice.clickShape = createRandomClickShapeValues(newVoice.clickShape.length);
+  appState.voices.push(newVoice);
+  appState.activeVoiceId = newVoice.voiceId;
+  renderVoiceCards();
+  syncAll({ resetVoiceIds: [newVoice.voiceId], measureMasterBus: "immediate" });
+
+  const voiceIndex = getVoiceIndexById(newVoice.voiceId);
+  setStatus(`${getVoiceTypeLabel(normalizedVoiceType)} ${voiceIndex + 1} hinzugefuegt und randomisiert.`);
+}
+
+function findLastVoiceByType(voiceType) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+
+  for (let index = appState.voices.length - 1; index >= 0; index -= 1) {
+    const voice = appState.voices[index];
+
+    if (normalizeVoiceType(voice.voiceType) === normalizedVoiceType) {
+      return voice;
+    }
+  }
+
+  return null;
+}
+
+function removeLastVoiceByType(voiceType) {
+  const normalizedVoiceType = normalizeVoiceType(voiceType);
+  const voice = findLastVoiceByType(normalizedVoiceType);
+  const typeCount = countVoicesByType(normalizedVoiceType);
+  const voiceLabel = getVoiceTypeLabel(normalizedVoiceType);
+
+  if (!voice) {
+    setStatus(`Kein ${voiceLabel}-Layer zum Entfernen vorhanden.`);
+    return;
+  }
+
+  if (appState.voices.length <= 1) {
+    setStatus("Mindestens eine Voice muss im Stack bleiben.");
+    return;
+  }
+
+  const remainingTypeCount = Math.max(0, typeCount - 1);
+  removeVoice(voice.voiceId, {
+    statusMessage: `${voiceLabel}-Layer entfernt. Noch ${remainingTypeCount} ${voiceLabel}-Layer im Stack.`,
+  });
+}
+
 function wireGlobalActions() {
   elements.masterBusModeSelect.addEventListener("change", () => {
     appState.masterBus.mode = elements.masterBusModeSelect.value;
@@ -890,16 +1064,6 @@ function wireGlobalActions() {
     setStatus("Init State geladen. Der Stack enthaelt jetzt genau eine stumme, randomisierte Perc-Voice.");
   });
 
-  elements.addVoiceButton.addEventListener("click", () => {
-    const sourceVoice = getActiveVoice() ?? appState.voices[0];
-    const newVoice = createVoiceClone(sourceVoice);
-    appState.voices.push(newVoice);
-    setActiveVoice(newVoice.voiceId, { renderCards: false });
-    renderVoiceCards();
-    syncAll({ measureMasterBus: "immediate" });
-    setStatus(`Voice ${appState.voices.length} hinzugefuegt.`);
-  });
-
   elements.tempoInput.addEventListener("input", () => {
     appState.tempo = fromSliderValue(tempoDefinition, Number(elements.tempoInput.value));
     refreshTransportControls();
@@ -999,6 +1163,8 @@ function renderHeaderVoiceControls() {
 
     refreshHeaderVoiceControl(view);
   });
+
+  refreshHeaderVoiceTypeControls();
 }
 
 function refreshHeaderVoiceControl(view) {
@@ -1034,6 +1200,8 @@ function refreshHeaderVoiceControls() {
   headerVoiceViews.forEach((view) => {
     refreshHeaderVoiceControl(view);
   });
+
+  refreshHeaderVoiceTypeControls();
 }
 
 function createVoiceCardShell(voice, index) {
@@ -1868,7 +2036,9 @@ function setActiveVoice(voiceId, options = {}) {
   }
 }
 
-function removeVoice(voiceId) {
+function removeVoice(voiceId, options = {}) {
+  const { statusMessage = null } = options;
+
   if (appState.voices.length <= 1) {
     return;
   }
@@ -1887,7 +2057,7 @@ function removeVoice(voiceId) {
 
   renderVoiceCards();
   syncAll({ measureMasterBus: "immediate" });
-  setStatus(`Voice entfernt. ${appState.voices.length} Voices aktiv.`);
+  setStatus(statusMessage ?? `Voice entfernt. ${appState.voices.length} Voices aktiv.`);
 }
 
 function loadPresetStack(presetId) {
@@ -1937,6 +2107,7 @@ function switchVoiceType(voiceId, nextVoiceType) {
 
   voice.voiceType = normalizedNextVoiceType;
   refreshVoiceView(view);
+  refreshHeaderVoiceControls();
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId], measureMasterBus: "immediate" });
   setStatus(`Voice ${voiceIndex + 1} auf ${getVoiceTypeLabel(voice.voiceType)} umgestellt.`);
@@ -2015,11 +2186,15 @@ function randomizePercVoiceState(voice) {
       voice[definition.key] = randomizeScalarValue(definition);
     });
 
-  voice.clickShape = Array.from({ length: voice.clickShape.length }, () => Math.random());
+  voice.clickShape = createRandomClickShapeValues(voice.clickShape.length);
   randomizeVoicePatternMode(voice);
   voice.amps = buildAmpPatternForVoice(voice);
   voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
   randomizePercLowEndDecay(voice);
+}
+
+function createRandomClickShapeValues(length = 64) {
+  return Array.from({ length }, () => Math.random());
 }
 
 function randomizeKickVoiceState(voice) {
@@ -2066,6 +2241,24 @@ function randomizeSubBassVoiceState(voice) {
   voice.amps = buildAmpPatternForVoice(voice);
 }
 
+function randomizeVoiceState(voice) {
+  if (!voice) {
+    return;
+  }
+
+  if (voice.voiceType === "kick") {
+    randomizeKickVoiceState(voice);
+    return;
+  }
+
+  if (voice.voiceType === "subbass") {
+    randomizeSubBassVoiceState(voice);
+    return;
+  }
+
+  randomizePercVoiceState(voice);
+}
+
 function randomizeVoice(voiceId) {
   const voice = getVoiceById(voiceId);
   const voiceIndex = getVoiceIndexById(voiceId);
@@ -2075,13 +2268,7 @@ function randomizeVoice(voiceId) {
     return;
   }
 
-  if (voice.voiceType === "kick") {
-    randomizeKickVoiceState(voice);
-  } else if (voice.voiceType === "subbass") {
-    randomizeSubBassVoiceState(voice);
-  } else {
-    randomizePercVoiceState(voice);
-  }
+  randomizeVoiceState(voice);
 
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
