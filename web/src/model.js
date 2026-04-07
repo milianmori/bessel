@@ -170,6 +170,7 @@ export function createPresetFromVoices(voices, metadata = {}) {
       tempo: metadata.tempo ?? null,
       masterBusMode: metadata.masterBusMode ?? null,
       stepRandomizationChance: metadata.stepRandomizationChance ?? null,
+      kickClickLevelZeroChance: metadata.kickClickLevelZeroChance ?? null,
     },
   });
 }
@@ -237,6 +238,10 @@ export function serializePresetState(preset) {
 
   if (normalized.stepRandomizationChance !== null) {
     serializedPreset.stepRandomizationChance = normalized.stepRandomizationChance;
+  }
+
+  if (normalized.kickClickLevelZeroChance !== null) {
+    serializedPreset.kickClickLevelZeroChance = normalized.kickClickLevelZeroChance;
   }
 
   return serializedPreset;
@@ -456,6 +461,9 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
   const stepRandomizationChance = normalizePresetStepRandomizationChance(
     data?.stepRandomizationChance ?? data?.step_randomization_chance,
   );
+  const kickClickLevelZeroChance = normalizePresetKickClickLevelZeroChance(
+    data?.kickClickLevelZeroChance ?? data?.kick_click_level_zero_chance,
+  );
 
   return {
     id: normalizePresetId(id) ?? Date.now(),
@@ -468,6 +476,7 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
     tempo,
     masterBusMode,
     stepRandomizationChance,
+    kickClickLevelZeroChance,
   };
 }
 
@@ -819,6 +828,15 @@ function normalizePresetMasterBusMode(value) {
 }
 
 function normalizePresetStepRandomizationChance(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? clamp(numeric, 0, 100) : null;
+}
+
+function normalizePresetKickClickLevelZeroChance(value) {
   if (value === null || value === undefined || value === "") {
     return null;
   }

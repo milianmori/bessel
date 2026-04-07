@@ -49,6 +49,9 @@ const elements = {
   stepRandomChanceInput: document.querySelector("#step-random-chance-input"),
   stepRandomChanceValueInput: document.querySelector("#step-random-chance-value-input"),
   stepRandomChanceNote: document.querySelector("#step-random-chance-note"),
+  kickClickZeroChanceInput: document.querySelector("#kick-click-zero-chance-input"),
+  kickClickZeroChanceValueInput: document.querySelector("#kick-click-zero-chance-value-input"),
+  kickClickZeroChanceNote: document.querySelector("#kick-click-zero-chance-note"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
   headerVoiceTypeControls: document.querySelector("#header-voice-type-controls"),
@@ -73,6 +76,13 @@ const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step:
 const stepRandomChanceDefinition = {
   key: "stepRandomizationChance",
   label: "Per Step Chance",
+  min: 0,
+  max: 100,
+  step: 1,
+};
+const kickClickZeroChanceDefinition = {
+  key: "kickClickLevelZeroChance",
+  label: "Kick Click Zero Chance",
   min: 0,
   max: 100,
   step: 1,
@@ -330,6 +340,7 @@ async function bootstrap() {
 
   refreshTransportControls();
   refreshStepRandomChanceControl();
+  refreshKickClickZeroChanceControl();
   syncAll({ resetTransport: true });
   renderScopeLoop();
 
@@ -471,6 +482,7 @@ function buildInitialAppState() {
         activeVoiceId: activeVoiceExists ? restoredSession.activeVoiceId : restoredVoices[0].voiceId,
         voices: restoredVoices,
         stepRandomizationChance: restoredSession.stepRandomizationChance ?? 0,
+        kickClickLevelZeroChance: restoredSession.kickClickLevelZeroChance ?? 0,
         masterBus: restoredSession.masterBus ?? createDefaultMasterBusState(),
       },
     };
@@ -501,6 +513,7 @@ function buildInitialAppState() {
       activeVoiceId: firstVoice.voiceId,
       voices: [firstVoice],
       stepRandomizationChance: 0,
+      kickClickLevelZeroChance: 0,
       masterBus: createDefaultMasterBusState(),
     },
   };
@@ -1139,6 +1152,26 @@ function wireGlobalActions() {
       setStepRandomizationChance(value, { announce: true });
     },
   });
+
+  elements.kickClickZeroChanceInput.addEventListener("input", () => {
+    setKickClickZeroChance(Number(elements.kickClickZeroChanceInput.value));
+  });
+
+  elements.kickClickZeroChanceInput.addEventListener("change", () => {
+    setKickClickZeroChance(Number(elements.kickClickZeroChanceInput.value), { announce: true });
+  });
+
+  bindKeyboardValueInput({
+    input: elements.kickClickZeroChanceValueInput,
+    label: kickClickZeroChanceDefinition.label,
+    min: kickClickZeroChanceDefinition.min,
+    max: kickClickZeroChanceDefinition.max,
+    step: kickClickZeroChanceDefinition.step,
+    getValue: () => appState.kickClickLevelZeroChance,
+    setValue: (value) => {
+      setKickClickZeroChance(value, { announce: true });
+    },
+  });
 }
 
 function refreshTransportControls() {
@@ -1192,6 +1225,54 @@ function setStepRandomizationChance(value, { announce = false } = {}) {
 
   if (announce) {
     setStatus(`Per-Step-Random-Chance: ${appState.stepRandomizationChance} %.`);
+  }
+}
+
+function refreshKickClickZeroChanceControl() {
+  const chance = clamp(
+    Number(appState?.kickClickLevelZeroChance) || 0,
+    kickClickZeroChanceDefinition.min,
+    kickClickZeroChanceDefinition.max,
+  );
+  elements.kickClickZeroChanceInput.value = String(chance);
+  syncKeyboardValueInput(
+    elements.kickClickZeroChanceValueInput,
+    chance,
+    kickClickZeroChanceDefinition.step,
+  );
+
+  if (!(elements.kickClickZeroChanceNote instanceof HTMLElement)) {
+    return;
+  }
+
+  if (chance <= 0) {
+    elements.kickClickZeroChanceNote.textContent =
+      "Beim Kick-Randomize bleibt Click Level immer ueber 0.";
+    return;
+  }
+
+  if (chance >= 100) {
+    elements.kickClickZeroChanceNote.textContent =
+      "Beim Kick-Randomize wird Click Level immer auf 0 gesetzt.";
+    return;
+  }
+
+  elements.kickClickZeroChanceNote.textContent =
+    `Beim Kick-Randomize wird Click Level mit ${chance} % Wahrscheinlichkeit auf 0 gesetzt.`;
+}
+
+function setKickClickZeroChance(value, { announce = false } = {}) {
+  appState.kickClickLevelZeroChance = quantizeValue(
+    value,
+    kickClickZeroChanceDefinition.min,
+    kickClickZeroChanceDefinition.max,
+    kickClickZeroChanceDefinition.step,
+  );
+  refreshKickClickZeroChanceControl();
+  persistSession();
+
+  if (announce) {
+    setStatus(`Kick-Click-Zero-Chance: ${appState.kickClickLevelZeroChance} %.`);
   }
 }
 
@@ -2379,6 +2460,14 @@ function loadPresetStack(presetId) {
     Number.isFinite(presetStepRandomizationChance) &&
     presetStepRandomizationChance >= 0 &&
     presetStepRandomizationChance <= 100;
+  const presetKickClickZeroChance =
+    preset.kickClickLevelZeroChance === null || preset.kickClickLevelZeroChance === undefined
+      ? null
+      : Number(preset.kickClickLevelZeroChance);
+  const hasPresetKickClickZeroChance =
+    Number.isFinite(presetKickClickZeroChance) &&
+    presetKickClickZeroChance >= 0 &&
+    presetKickClickZeroChance <= 100;
 
   appState.voices = createVoicesFromPreset(preset);
   appState.activeVoiceId = appState.voices[Math.min(currentActiveIndex, appState.voices.length - 1)].voiceId;
@@ -2398,10 +2487,15 @@ function loadPresetStack(presetId) {
     refreshStepRandomChanceControl();
   }
 
+  if (hasPresetKickClickZeroChance) {
+    appState.kickClickLevelZeroChance = presetKickClickZeroChance;
+    refreshKickClickZeroChanceControl();
+  }
+
   renderVoiceCards();
   syncAll({ measureMasterBus: "immediate" });
   setStatus(
-    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}${preset.masterBusMode ? ` Modus ${getMasterBusModeLabel(preset.masterBusMode)}.` : ""}${hasPresetStepRandomizationChance ? ` Per-Step ${appState.stepRandomizationChance} %.` : ""}`,
+    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}${preset.masterBusMode ? ` Modus ${getMasterBusModeLabel(preset.masterBusMode)}.` : ""}${hasPresetStepRandomizationChance ? ` Per-Step ${appState.stepRandomizationChance} %.` : ""}${hasPresetKickClickZeroChance ? ` Kick Click 0 ${appState.kickClickLevelZeroChance} %.` : ""}`,
   );
 }
 
@@ -2526,12 +2620,22 @@ function randomizeKickSoundState(voice) {
   voice.kickBodyDecayMs = randomInRange(160, 620, 1);
   voice.kickPitchDropSt = randomInRange(6, 16, 0.1);
   voice.kickPitchDropMs = randomInRange(22, 80, 1);
-  voice.kickClickLevel = randomInRange(0.05, 0.34, 0.001);
+  voice.kickClickLevel = Math.random() < getKickClickZeroChanceRatio()
+    ? 0
+    : randomInRange(0.05, 0.34, 0.001);
   voice.kickClickDecayMs = randomInRange(4, 22, 0.1);
   voice.kickNoiseLevel = randomInRange(0, 0.18, 0.001);
   voice.kickNoiseDecayMs = randomInRange(10, 70, 0.1);
   voice.kickDrive = randomInRange(0.04, 0.32, 0.001);
   voice.kickTone = randomInRange(0.35, 0.92, 0.001);
+}
+
+function getKickClickZeroChanceRatio() {
+  return clamp(
+    Number(appState?.kickClickLevelZeroChance) || 0,
+    kickClickZeroChanceDefinition.min,
+    kickClickZeroChanceDefinition.max,
+  ) / 100;
 }
 
 function randomizeSubBassPattern(voice) {
@@ -2672,6 +2776,7 @@ async function saveStackAsUserPreset() {
     appState.tempo,
     appState.masterBus.mode,
     appState.stepRandomizationChance,
+    appState.kickClickLevelZeroChance,
   );
   const nextUserPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
   const persistence = await commitUserPresetChanges(nextUserPresets);
@@ -2704,6 +2809,7 @@ async function updateUserPresetFromStack() {
     appState.tempo,
     appState.masterBus.mode,
     appState.stepRandomizationChance,
+    appState.kickClickLevelZeroChance,
   );
   const nextUserPresets = [updatedPreset, ...userPresets.filter((entry) => !presetIdsToRemove.has(entry.id))];
   const persistence = await commitUserPresetChanges(nextUserPresets);

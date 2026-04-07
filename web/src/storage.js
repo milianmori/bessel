@@ -99,6 +99,7 @@ export function createUserPresetSnapshot(
   tempo = null,
   masterBusMode = null,
   stepRandomizationChance = null,
+  kickClickLevelZeroChance = null,
 ) {
   const timestamp = Date.now();
 
@@ -111,6 +112,7 @@ export function createUserPresetSnapshot(
     tempo,
     masterBusMode,
     stepRandomizationChance,
+    kickClickLevelZeroChance,
   });
 }
 
@@ -127,6 +129,7 @@ export function loadSessionState() {
   const activeVoiceId = Number(payload?.activeVoiceId);
   const tempo = Number(payload?.tempo);
   const stepRandomizationChance = Number(payload?.stepRandomizationChance);
+  const kickClickLevelZeroChance = Number(payload?.kickClickLevelZeroChance);
 
   return {
     running: false,
@@ -135,6 +138,9 @@ export function loadSessionState() {
     voices,
     stepRandomizationChance: Number.isFinite(stepRandomizationChance)
       ? Math.min(100, Math.max(0, stepRandomizationChance))
+      : 0,
+    kickClickLevelZeroChance: Number.isFinite(kickClickLevelZeroChance)
+      ? Math.min(100, Math.max(0, kickClickLevelZeroChance))
       : 0,
     masterBus: normalizeMasterBusState(payload?.masterBus),
   };
@@ -146,6 +152,7 @@ export function persistSessionState(state) {
     tempo: state.tempo,
     activeVoiceId: state.activeVoiceId,
     stepRandomizationChance: state.stepRandomizationChance,
+    kickClickLevelZeroChance: state.kickClickLevelZeroChance,
     voices: state.voices.map((voice) => serializeVoiceState(voice)),
     masterBus: serializeMasterBusState(state.masterBus),
   });
