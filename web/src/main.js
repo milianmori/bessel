@@ -209,8 +209,21 @@ const kickVoiceScalarDefinitions = [
   { key: "kickNoiseDecayMs", label: "Noise Decay", min: 1, max: 220, step: 0.1 },
   { key: "kickDrive", label: "Drive", min: 0, max: 1, step: 0.001 },
   { key: "kickTone", label: "Tone", min: 0, max: 1, step: 0.001 },
+  { key: "kickLowCutCutoffHz", label: "Low Cut Cutoff", min: 20, max: 1200, step: 1, transform: "log" },
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
+
+const voiceOptionDefinitions = {
+  perc: [],
+  kick: [
+    {
+      key: "kickLowCutEnabled",
+      label: "Low Cut",
+      description: "Aktiviert einen High-Pass direkt im Kick-Signalpfad.",
+    },
+  ],
+  subbass: [],
+};
 
 const subBassVoiceScalarDefinitions = [
   { key: "subBassFreqHz", label: "Fundamental", min: 28, max: 90, step: 0.1 },
@@ -1389,6 +1402,16 @@ function createVoiceCardShell(voice, index) {
           </div>
         </div>
         <div class="controls-grid voice-scalar-controls"></div>
+        <div class="voice-option-section" hidden>
+          <div class="voice-option-head">
+            <div>
+              <p class="eyebrow">Filter</p>
+              <h3>Kick Low Cut</h3>
+            </div>
+            <p class="panel-note">Optionaler High-Pass fuer den Kick-Output.</p>
+          </div>
+          <div class="voice-option-controls"></div>
+        </div>
         <div class="voice-step-random-section">
           <div class="voice-step-random-head">
             <div>
@@ -1480,6 +1503,8 @@ function createVoiceCardShell(voice, index) {
     soundRandomButton: root.querySelector(".voice-sound-random-button"),
     macroTitle: root.querySelector(".voice-macro-title"),
     scalarControls: root.querySelector(".voice-scalar-controls"),
+    optionSection: root.querySelector(".voice-option-section"),
+    optionControls: root.querySelector(".voice-option-controls"),
     stepRandomControls: root.querySelector(".voice-step-random-controls"),
     clickPanel: root.querySelector(".voice-click-panel"),
     envelopePanel: root.querySelector(".voice-envelope-panel"),
@@ -1496,8 +1521,10 @@ function createVoiceCardShell(voice, index) {
     segmentCurveInput: root.querySelector(".voice-segment-curve-input"),
     controlInputs: new Map(),
     controlValueInputs: new Map(),
+    optionInputs: new Map(),
     stepRandomInputs: new Map(),
     currentScalarType: null,
+    currentOptionType: null,
     currentStepRandomType: null,
     clickSlider: null,
     ampsSlider: null,
@@ -1509,6 +1536,7 @@ function initializeVoiceCard(view, voiceId, index) {
   populateSelectWithOptions(view.patternSourceSelect, AMP_PATTERN_SOURCE_OPTIONS);
   populatePatternModeSelect(view.patternModeSelect);
   rebuildVoiceScalarControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
+  rebuildVoiceOptionControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
   rebuildVoiceStepRandomControls(view, voiceId, getVoiceById(voiceId)?.voiceType ?? "perc");
 
   view.clickSlider = new MultiSlider({
@@ -1819,6 +1847,10 @@ function getVoiceStepRandomizationDefinitions(voiceType) {
   return voiceStepRandomizationDefinitions[voiceType] ?? voiceStepRandomizationDefinitions.perc;
 }
 
+function getVoiceOptionDefinitions(voiceType) {
+  return voiceOptionDefinitions[voiceType] ?? voiceOptionDefinitions.perc;
+}
+
 function randomizeVoiceStepRandomizationFlags(voice) {
   if (!voice) {
     return;
@@ -2081,6 +2113,85 @@ function rebuildVoiceStepRandomControls(view, voiceId, voiceType) {
   });
 }
 
+function rebuildVoiceOptionControls(view, voiceId, voiceType) {
+  view.currentOptionType = voiceType;
+  view.optionInputs.clear();
+  view.optionControls.textContent = "";
+
+  const definitions = getVoiceOptionDefinitions(voiceType);
+  view.optionSection.hidden = definitions.length === 0;
+
+  definitions.forEach((definition) => {
+    const toggle = document.createElement("label");
+    toggle.className = "voice-option-toggle";
+
+    const copy = document.createElement("span");
+    copy.className = "voice-option-copy";
+
+    const title = document.createElement("span");
+    title.className = "voice-option-label";
+    title.textContent = definition.label;
+
+    const description = document.createElement("span");
+    description.className = "voice-option-description";
+    description.textContent = definition.description;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = Boolean(getVoiceById(voiceId)?.[definition.key]);
+    input.setAttribute("aria-label", definition.label);
+
+    copy.append(title, description);
+    toggle.append(copy, input);
+    toggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+    input.addEventListener("change", () => {
+      const voice = getVoiceById(voiceId);
+      const voiceIndex = getVoiceIndexById(voiceId);
+
+      if (!voice || voiceIndex === -1) {
+        return;
+      }
+
+      setActiveVoice(voiceId, { syncAnalysis: false });
+      voice[definition.key] = input.checked;
+      syncKickLowCutControlState(view, voice);
+      syncAll();
+
+      if (definition.key === "kickLowCutEnabled") {
+        const cutoffLabel = `${voice.kickLowCutCutoffHz.toFixed(0)} Hz`;
+        setStatus(`Voice ${voiceIndex + 1}: Kick Low Cut ${input.checked ? `an (${cutoffLabel})` : "aus"}.`);
+      }
+    });
+
+    view.optionInputs.set(definition.key, input);
+    view.optionControls.append(toggle);
+  });
+}
+
+function syncKickLowCutControlState(view, voice) {
+  const isKick = normalizeVoiceType(voice?.voiceType) === "kick";
+  const enabled = Boolean(voice?.kickLowCutEnabled);
+  const toggleInput = view.optionInputs.get("kickLowCutEnabled");
+  const cutoffInput = view.controlInputs.get("kickLowCutCutoffHz");
+  const cutoffValueInput = view.controlValueInputs.get("kickLowCutCutoffHz");
+  const cutoffControl = cutoffInput?.closest(".control");
+
+  if (toggleInput) {
+    toggleInput.checked = enabled;
+  }
+
+  if (!cutoffInput || !cutoffValueInput || !cutoffControl) {
+    return;
+  }
+
+  const cutoffDisabled = !isKick || !enabled;
+  cutoffInput.disabled = cutoffDisabled;
+  cutoffValueInput.disabled = cutoffDisabled;
+  cutoffControl.classList.toggle("is-disabled", cutoffDisabled);
+}
+
 function refreshVoiceView(view) {
   const voiceId = Number(view.root.dataset.voiceId);
   const voice = getVoiceById(voiceId);
@@ -2092,6 +2203,10 @@ function refreshVoiceView(view) {
 
   if (view.currentScalarType !== voice.voiceType) {
     rebuildVoiceScalarControls(view, voiceId, voice.voiceType);
+  }
+
+  if (view.currentOptionType !== voice.voiceType) {
+    rebuildVoiceOptionControls(view, voiceId, voice.voiceType);
   }
 
   if (view.currentStepRandomType !== voice.voiceType) {
@@ -2117,6 +2232,7 @@ function refreshVoiceView(view) {
   view.root.classList.toggle("is-solo", voice.solo);
   view.root.classList.toggle("is-suppressed", hasSoloVoices() && !voice.solo);
   refreshVoicePatternControls(view, voice);
+  view.optionSection.hidden = getVoiceOptionDefinitions(voice.voiceType).length === 0;
 
   getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
     const input = view.controlInputs.get(definition.key);
@@ -2129,6 +2245,18 @@ function refreshVoiceView(view) {
     input.value = String(toSliderValue(definition, voice[definition.key]));
     syncKeyboardValueInput(valueInput, voice[definition.key], definition.step);
   });
+
+  getVoiceOptionDefinitions(voice.voiceType).forEach((definition) => {
+    const input = view.optionInputs.get(definition.key);
+
+    if (!input) {
+      return;
+    }
+
+    input.checked = Boolean(voice[definition.key]);
+  });
+
+  syncKickLowCutControlState(view, voice);
 
   getVoiceStepRandomizationDefinitions(voice.voiceType).forEach((definition) => {
     const input = view.stepRandomInputs.get(definition.key);
@@ -2860,7 +2988,11 @@ function renderActiveVoiceAnalysis(analysisByVoice = []) {
   elements.analysisVoiceLabel.textContent = `Voice ${activeVoiceIndex + 1} · ${getVoiceTypeLabel(activeVoice.voiceType)}`;
 
   if (analysis.type === "kick") {
-    elements.freqSummary.textContent = `Body ${activeVoice.kickBodyFreqHz.toFixed(1)} Hz · Peak ${analysis.frequencies[1].toFixed(1)} Hz`;
+    const lowCutLabel = activeVoice.kickLowCutEnabled
+      ? ` · Low Cut ${activeVoice.kickLowCutCutoffHz.toFixed(0)} Hz`
+      : "";
+    elements.freqSummary.textContent =
+      `Body ${activeVoice.kickBodyFreqHz.toFixed(1)} Hz · Peak ${analysis.frequencies[1].toFixed(1)} Hz${lowCutLabel}`;
     elements.weightSummary.textContent =
       `Click ${activeVoice.kickClickLevel.toFixed(2)} · Noise ${activeVoice.kickNoiseLevel.toFixed(2)} · Drive ${activeVoice.kickDrive.toFixed(2)}`;
     return;

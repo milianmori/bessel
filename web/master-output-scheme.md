@@ -6,6 +6,11 @@ Aktueller Signalfluss der Web-Audio-Engine mit messbasiertem Master-Bus.
 Per-Voice Synthesis
   kick / subbass / perc modal voices
           |
+          +--> kick only:
+          |      optional Low Cut
+          |        checkbox on/off
+          |        cutoff slider per voice
+          |
           +--> perc only:
           |      Perc Glue Compressor
           |        stereo-linked soft knee

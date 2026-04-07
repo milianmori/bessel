@@ -62,6 +62,8 @@ const DEFAULT_KICK_VALUES = {
   kickNoiseDecayMs: 36,
   kickDrive: 0.14,
   kickTone: 0.58,
+  kickLowCutEnabled: false,
+  kickLowCutCutoffHz: 30,
 };
 
 const DEFAULT_SUB_BASS_VALUES = {
@@ -318,6 +320,7 @@ export function formatValue(key, value) {
   switch (key) {
     case "tuning":
     case "kickBodyFreqHz":
+    case "kickLowCutCutoffHz":
     case "subBassFreqHz":
       return `${value.toFixed(1)} Hz`;
     case "size":
@@ -602,6 +605,18 @@ function normalizeVoicePayload(raw = {}) {
     ),
     kickDrive: clamp(readScalar(raw.kickDrive, DEFAULT_KICK_VALUES.kickDrive), 0, 1),
     kickTone: clamp(readScalar(raw.kickTone, DEFAULT_KICK_VALUES.kickTone), 0, 1),
+    kickLowCutEnabled: readBoolean(
+      raw.kickLowCutEnabled ?? raw.kick_low_cut_enabled,
+      DEFAULT_KICK_VALUES.kickLowCutEnabled,
+    ),
+    kickLowCutCutoffHz: clamp(
+      readScalar(
+        raw.kickLowCutCutoffHz ?? raw.kick_low_cut_cutoff_hz,
+        DEFAULT_KICK_VALUES.kickLowCutCutoffHz,
+      ),
+      20,
+      1200,
+    ),
     subBassFreqHz: clamp(
       readScalar(raw.subBassFreqHz ?? raw.sub_bass_freq_hz, DEFAULT_SUB_BASS_VALUES.subBassFreqHz),
       28,
@@ -709,6 +724,8 @@ function serializeVoicePayload(raw = {}) {
     kickNoiseDecayMs: normalizedState.kickNoiseDecayMs,
     kickDrive: normalizedState.kickDrive,
     kickTone: normalizedState.kickTone,
+    kickLowCutEnabled: normalizedState.kickLowCutEnabled,
+    kickLowCutCutoffHz: normalizedState.kickLowCutCutoffHz,
     subBassFreqHz: normalizedState.subBassFreqHz,
     subBassAttackMs: normalizedState.subBassAttackMs,
     subBassDecayMs: normalizedState.subBassDecayMs,

@@ -731,6 +731,10 @@ h3 {
   cursor: not-allowed;
 }
 
+.control.is-disabled {
+  opacity: 0.68;
+}
+
 .control select:disabled {
   opacity: 0.58;
   cursor: not-allowed;
@@ -881,6 +885,71 @@ select {
   display: grid;
   gap: 0.42rem;
   margin-top: 0.1rem;
+}
+
+.voice-option-section {
+  display: grid;
+  gap: 0.42rem;
+  margin-top: 0.1rem;
+}
+
+.voice-option-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.voice-option-controls {
+  display: grid;
+  gap: 0.42rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.voice-option-toggle {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.72rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.voice-option-toggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(240, 176, 117, 0.24);
+  background: rgba(240, 176, 117, 0.08);
+}
+
+.voice-option-copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.voice-option-label {
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.15;
+}
+
+.voice-option-description {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.22;
+}
+
+.voice-option-toggle input {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
 }
 
 .voice-step-random-head {
@@ -1037,6 +1106,7 @@ canvas {
 
   .voice-card-head,
   .panel-head,
+  .voice-option-head,
   .voice-step-random-head {
     flex-direction: column;
   }

@@ -153,6 +153,8 @@ function buildProcessorConfig(state, analysisByVoice, options) {
           kickNoiseDecayMs: voice.kickNoiseDecayMs,
           kickDrive: voice.kickDrive,
           kickTone: voice.kickTone,
+          kickLowCutEnabled: voice.kickLowCutEnabled,
+          kickLowCutCutoffHz: voice.kickLowCutCutoffHz,
         };
       }
 

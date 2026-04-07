@@ -163,6 +163,8 @@ function createVoiceRuntime(config) {
     kickNoiseDecayMs: 36,
     kickDrive: 0.14,
     kickTone: 0.58,
+    kickLowCutEnabled: false,
+    kickLowCutCutoffHz: 30,
     randomizeKickClickLevelPerStep: false,
     randomizeKickClickDecayMsPerStep: false,
     randomizeClickShapePerStep: false,
@@ -207,6 +209,7 @@ function createVoiceRuntime(config) {
     kickNoiseTotal: 1,
     kickPhase: 0,
     kickToneState: 0,
+    kickLowCutState: 0,
     subBassAmplitude: 0,
     subBassAttackRemaining: 0,
     subBassAttackTotal: 1,
@@ -309,6 +312,14 @@ function applyVoiceConfig(voice, config) {
     voice.kickTone = clamp(config.kickTone, 0, 1);
   }
 
+  if (typeof config.kickLowCutEnabled === "boolean") {
+    voice.kickLowCutEnabled = config.kickLowCutEnabled;
+  }
+
+  if (typeof config.kickLowCutCutoffHz === "number") {
+    voice.kickLowCutCutoffHz = clamp(config.kickLowCutCutoffHz, 20, 1200);
+  }
+
   if (typeof config.subBassFreqHz === "number") {
     voice.subBassFreqHz = clamp(config.subBassFreqHz, 28, 90);
   }
@@ -398,6 +409,7 @@ function resetVoiceState(voice, clearModes) {
   voice.kickNoiseTotal = 1;
   voice.kickPhase = 0;
   voice.kickToneState = 0;
+  voice.kickLowCutState = 0;
   voice.subBassAmplitude = 0;
   voice.subBassAttackRemaining = 0;
   voice.subBassAttackTotal = 1;
@@ -648,7 +660,11 @@ function renderKickFrame(voice) {
   voice.kickToneState += toneAlpha * (sample - voice.kickToneState);
 
   const driven = applyDrive(voice.kickToneState, voice.kickDrive);
-  const output = driven * voice.masterGain;
+  const lowCutCutoffHz = clamp(voice.kickLowCutCutoffHz, 20, Math.min(1200, sampleRate * 0.45));
+  const lowCutAlpha = 1 - Math.exp((-TWO_PI * lowCutCutoffHz) / sampleRate);
+  voice.kickLowCutState += lowCutAlpha * (driven - voice.kickLowCutState);
+  const lowCutSample = driven - voice.kickLowCutState;
+  const output = (voice.kickLowCutEnabled ? lowCutSample : driven) * voice.masterGain;
 
   return {
     left: output,
