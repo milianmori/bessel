@@ -38,6 +38,7 @@ const DEFAULT_PRESET_VALUES = {
   hitPosition: 0.5,
   damping: 0.5,
   overtones: 0.52,
+  lowEndDecay: 1,
   pitchEnvCurve: 0,
   pitchEnvDurMs: 50,
   pitchEnvRange: 0,
@@ -315,6 +316,7 @@ export function formatValue(key, value) {
     case "hitPosition":
     case "damping":
     case "overtones":
+    case "lowEndDecay":
     case "noiseLevel":
     case "kickClickLevel":
     case "kickNoiseLevel":
@@ -507,6 +509,14 @@ function normalizeVoicePayload(raw = {}) {
     hitPosition: clamp(readScalar(raw.hitPosition ?? raw.hit_pos, DEFAULT_PRESET_VALUES.hitPosition), 0, 1),
     damping: clamp(readScalar(raw.damping, DEFAULT_PRESET_VALUES.damping), 0, 1),
     overtones: clamp(readScalar(raw.overtones, DEFAULT_PRESET_VALUES.overtones), 0, 1),
+    lowEndDecay: clamp(
+      readScalar(
+        raw.lowEndDecay ?? raw.low_end_decay ?? raw.lowEndDecayScale ?? raw.low_end_decay_scale,
+        DEFAULT_PRESET_VALUES.lowEndDecay,
+      ),
+      0.25,
+      2,
+    ),
     clickShape: ensureLength(raw.clickShape ?? raw.click_shape, 64, 0.5),
     amps: ensureLength(raw.amps, 16, 0.6),
     noiseEnvelope: parseNoiseEnvelope(raw.noiseEnvelope ?? raw.noiz_env),
@@ -635,6 +645,7 @@ function serializeVoicePayload(raw = {}) {
     hitPosition: normalizedState.hitPosition,
     damping: normalizedState.damping,
     overtones: normalizedState.overtones,
+    lowEndDecay: normalizedState.lowEndDecay,
     clickShape: [...normalizedState.clickShape],
     amps: [...normalizedState.amps],
     noiseEnvelope: {

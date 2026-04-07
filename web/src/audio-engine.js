@@ -171,6 +171,7 @@ function buildProcessorConfig(state, analysisByVoice, options) {
 
       return {
         ...baseConfig,
+        lowEndDecay: voice.lowEndDecay,
         pitchEnvDurMs: voice.pitchEnvDurMs,
         pitchEnvCurve: voice.pitchEnvCurve,
         pitchEnvRange: voice.pitchEnvRange,

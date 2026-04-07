@@ -130,6 +130,8 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
 }
 
 const MAX_MODAL_FREQUENCY_FACTOR = 8;
+const LOW_END_DECAY_MIN_FREQUENCY = 50;
+const LOW_END_DECAY_MAX_FREQUENCY = 1600;
 const RUNAWAY_STATE_LIMIT = 64;
 const TWO_PI = Math.PI * 2;
 
@@ -146,6 +148,7 @@ function createVoiceRuntime(config) {
     pitchEnvRange: 0,
     noiseLevel: 1,
     nzEnvDurMs: 50,
+    lowEndDecay: 1,
     kickBodyFreqHz: 52,
     kickBodyDecayMs: 360,
     kickPitchDropSt: 11,
@@ -243,6 +246,10 @@ function applyVoiceConfig(voice, config) {
 
   if (typeof config.nzEnvDurMs === "number") {
     voice.nzEnvDurMs = Math.max(0, config.nzEnvDurMs);
+  }
+
+  if (typeof config.lowEndDecay === "number") {
+    voice.lowEndDecay = clamp(config.lowEndDecay, 0.25, 2);
   }
 
   if (typeof config.kickBodyFreqHz === "number") {
@@ -541,7 +548,7 @@ function renderPercFrame(voice) {
       sampleRate / MAX_MODAL_FREQUENCY_FACTOR,
     );
     const f = 2 * Math.sin((Math.PI * transposedFrequency) / sampleRate);
-    const q = voice.qCoefficients[modeIndex] || 0.03;
+    const q = computePercModeDamping(voice.qCoefficients[modeIndex] || 0.03, transposedFrequency, voice.lowEndDecay);
 
     const high = sanitize(excitation - modeState.d2 - q * modeState.d1);
     const band = sanitize(high * f + modeState.d1);
@@ -730,6 +737,26 @@ function renderDecayEnvelope(remaining, total, slope) {
 
   const phase = 1 - remaining / total;
   return Math.exp(-phase * slope);
+}
+
+function computePercModeDamping(baseQ, frequency, lowEndDecay) {
+  const lowEndWeight = computeLowEndWeight(frequency);
+
+  if (lowEndWeight <= 0) {
+    return clamp(baseQ, 0.0001, 2);
+  }
+
+  const decayScale = clamp(lowEndDecay, 0.25, 2);
+  const dampingScale = 1 + lowEndWeight * ((1 / decayScale) - 1);
+  return clamp(baseQ * dampingScale, 0.0001, 2);
+}
+
+function computeLowEndWeight(frequency) {
+  const clampedFrequency = clamp(frequency, LOW_END_DECAY_MIN_FREQUENCY, LOW_END_DECAY_MAX_FREQUENCY);
+  const minLog = Math.log2(LOW_END_DECAY_MIN_FREQUENCY);
+  const maxLog = Math.log2(LOW_END_DECAY_MAX_FREQUENCY);
+  const normalized = 1 - (Math.log2(clampedFrequency) - minLog) / Math.max(maxLog - minLog, 0.000001);
+  return clamp(normalized, 0, 1) ** 1.35;
 }
 
 function applyDrive(value, drive) {
