@@ -1,6 +1,7 @@
 import { curveTransfer, normalizeEnvelopePoints } from "../model.js";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const PLOT_PADDING = 14;
 
 export class EnvelopeEditor {
   constructor({ canvas, points, onChange = null, onSelectionChange = null }) {
@@ -102,8 +103,7 @@ export class EnvelopeEditor {
     }
 
     const rect = this.canvas.getBoundingClientRect();
-    const normalizedX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-    const normalizedY = clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1);
+    const { normalizedX, normalizedY } = getNormalizedPointerPosition(event, rect);
     const index = this.draggingPointIndex;
     const point = this.points[index];
 
@@ -128,9 +128,10 @@ export class EnvelopeEditor {
 
     for (let index = 0; index < this.points.length; index += 1) {
       const point = this.points[index];
-      const x = rect.left + point.time * rect.width;
-      const y = rect.top + (1 - point.value) * rect.height;
-      const distance = Math.hypot(event.clientX - x, event.clientY - y);
+      const { x, y } = getCanvasPoint(point, rect.width, rect.height);
+      const screenX = rect.left + x;
+      const screenY = rect.top + y;
+      const distance = Math.hypot(event.clientX - screenX, event.clientY - screenY);
 
       if (distance <= pointRadius) {
         return index;
@@ -142,7 +143,7 @@ export class EnvelopeEditor {
 
   pickSegment(event) {
     const rect = this.canvas.getBoundingClientRect();
-    const normalizedX = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+    const { normalizedX } = getNormalizedPointerPosition(event, rect);
 
     for (let index = 1; index < this.points.length; index += 1) {
       if (normalizedX <= this.points[index].time) {
@@ -172,6 +173,7 @@ export class EnvelopeEditor {
   render() {
     const context = setupCanvas(this.canvas);
     const { width, height } = this.canvas;
+    const plotBounds = getPlotBounds(width, height);
 
     context.clearRect(0, 0, width, height);
     context.fillStyle = "rgba(8,12,18,0.94)";
@@ -180,19 +182,19 @@ export class EnvelopeEditor {
     context.strokeStyle = "rgba(255,255,255,0.08)";
     context.lineWidth = 1;
 
-    for (let row = 1; row < 5; row += 1) {
-      const y = (height / 5) * row;
+    for (let row = 0; row <= 5; row += 1) {
+      const y = plotBounds.top + (plotBounds.height / 5) * row;
       context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(width, y);
+      context.moveTo(plotBounds.left, y);
+      context.lineTo(plotBounds.left + plotBounds.width, y);
       context.stroke();
     }
 
-    for (let column = 1; column < 8; column += 1) {
-      const x = (width / 8) * column;
+    for (let column = 0; column <= 8; column += 1) {
+      const x = plotBounds.left + (plotBounds.width / 8) * column;
       context.beginPath();
-      context.moveTo(x, 0);
-      context.lineTo(x, height);
+      context.moveTo(x, plotBounds.top);
+      context.lineTo(x, plotBounds.top + plotBounds.height);
       context.stroke();
     }
 
@@ -200,12 +202,13 @@ export class EnvelopeEditor {
     context.lineWidth = 3;
     context.strokeStyle = "#6ab1c7";
 
-    for (let x = 0; x <= width; x += 2) {
-      const phase = x / width;
+    for (let offset = 0; offset <= plotBounds.width; offset += 2) {
+      const phase = offset / plotBounds.width;
       const value = sampleEnvelope(this.points, phase);
-      const y = (1 - value) * height;
+      const x = plotBounds.left + offset;
+      const y = plotBounds.top + (1 - value) * plotBounds.height;
 
-      if (x === 0) {
+      if (offset === 0) {
         context.moveTo(x, y);
       } else {
         context.lineTo(x, y);
@@ -215,8 +218,7 @@ export class EnvelopeEditor {
     context.stroke();
 
     this.points.forEach((point, index) => {
-      const x = point.time * width;
-      const y = (1 - point.value) * height;
+      const { x, y } = getCanvasPoint(point, width, height);
       context.beginPath();
       context.fillStyle = index === this.selectedPointIndex ? "#f0b075" : "#c57b57";
       context.arc(x, y, index === this.selectedPointIndex ? 9 : 7, 0, Math.PI * 2);
@@ -226,6 +228,35 @@ export class EnvelopeEditor {
       context.stroke();
     });
   }
+}
+
+function getPlotBounds(width, height) {
+  const inset = Math.min(PLOT_PADDING, width * 0.2, height * 0.2);
+
+  return {
+    left: inset,
+    top: inset,
+    width: Math.max(1, width - inset * 2),
+    height: Math.max(1, height - inset * 2),
+  };
+}
+
+function getCanvasPoint(point, width, height) {
+  const bounds = getPlotBounds(width, height);
+
+  return {
+    x: bounds.left + point.time * bounds.width,
+    y: bounds.top + (1 - point.value) * bounds.height,
+  };
+}
+
+function getNormalizedPointerPosition(event, rect) {
+  const bounds = getPlotBounds(rect.width, rect.height);
+
+  return {
+    normalizedX: clamp((event.clientX - rect.left - bounds.left) / bounds.width, 0, 1),
+    normalizedY: clamp(1 - (event.clientY - rect.top - bounds.top) / bounds.height, 0, 1),
+  };
 }
 
 function sampleEnvelope(points, phase) {
