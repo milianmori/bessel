@@ -3,129 +3,131 @@
 Diese Datei wird von der Browser-App geschrieben und gelesen.
 Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
 
-- Aktualisiert: 2026-04-07T07:47:42.057Z
-- Anzahl: 10
+- Aktualisiert: 2026-04-07T09:41:42.645Z
+- Anzahl: 11
 
 ## Presets
 
-1. Preset 9 (2026-04-07T07:47:42.057Z)
-2. Preset 8 (2026-04-05T13:45:55.622Z)
-3. Preset 7 (2026-04-05T13:45:00.836Z)
-4. Preset 6 (2026-04-05T13:44:01.423Z)
-5. Preset 5 (2026-04-05T13:42:58.457Z)
-6. Preset 4 (2026-04-05T13:42:04.233Z)
-7. Preset 3.5 (2026-04-05T13:41:06.584Z)
-8. Preset 3 (2026-04-05T13:40:07.513Z)
-9. Preset 2 (2026-04-05T13:37:33.677Z)
-10. Preset 1 (2026-04-05T13:36:05.205Z)
+1. Preset 10 (2026-04-07T09:41:42.644Z)
+2. Preset 9 (2026-04-07T08:34:47.823Z)
+3. Preset 8 (2026-04-05T13:45:55.622Z)
+4. Preset 7 (2026-04-05T13:45:00.836Z)
+5. Preset 6 (2026-04-05T13:44:01.423Z)
+6. Preset 5 (2026-04-05T13:42:58.457Z)
+7. Preset 4 (2026-04-05T13:42:04.233Z)
+8. Preset 3.5 (2026-04-05T13:41:06.584Z)
+9. Preset 3 (2026-04-05T13:40:07.513Z)
+10. Preset 2 (2026-04-05T13:37:33.677Z)
+11. Preset 1 (2026-04-05T13:36:05.205Z)
 
 ## Rohdaten
 
 ```json
 {
   "version": 2,
-  "exportedAt": "2026-04-07T07:47:42.057Z",
+  "exportedAt": "2026-04-07T09:41:42.645Z",
   "presets": [
     {
-      "id": 1775547848759,
-      "name": "Preset 9",
+      "id": 1775554902644,
+      "name": "Preset 10",
       "source": "user",
-      "createdAt": 1775547848759,
-      "updatedAt": 1775548062057,
+      "createdAt": 1775554902644,
+      "updatedAt": 1775554902644,
       "voices": [
         {
           "voiceType": "perc",
           "ampPatternSource": 2,
-          "ampMode": 5,
-          "rhythmMode": 4,
-          "tuning": 37,
-          "size": 0.136,
-          "hitPosition": 0.92,
-          "damping": 0.18,
-          "overtones": 0.67,
+          "ampMode": 4,
+          "rhythmMode": 2,
+          "tuning": 25.822240900494286,
+          "size": 0.985,
+          "hitPosition": 0.171,
+          "damping": 0.153,
+          "overtones": 0.396,
+          "lowEndDecay": 0.262,
           "clickShape": [
-            0.4604078389830508,
-            0.4858977754237288,
-            0.5011917372881356,
-            0.517280190677966,
-            0.532276218220339,
-            0.545948093220339,
-            0.559619968220339,
-            0.5665717690677966,
-            0.5815677966101696,
-            0.5896120233050848,
-            0.5994438559322034,
-            0.6104674258474576,
-            0.6223516949152542,
-            0.23338188559322037,
-            0.6333752648305084,
-            0.6562831038135593,
-            0.6673066737288136,
-            0.689353813559322,
-            0.7200410487288136,
-            0.7280852754237288,
-            0.7430813029661016,
-            0.7465572033898304,
-            0.7567531779661016,
-            0.7567531779661016,
-            0.7469544491525424,
-            0.7371557203389831,
-            0.7371557203389831,
-            0.7371557203389831,
-            0.7371557203389831,
-            0.7061705508474576,
-            0.658004502118644,
-            0.6175847457627119,
-            0.5964645127118644,
-            0.5621358580508475,
-            0.53125,
-            0.5163863877118644,
-            0.4965240995762712,
-            0.4885129766949152,
-            0.46802171610169496,
-            0.451999470338983,
-            0.4390227754237288,
-            0.4013506355932204,
-            0.31567796610169496,
-            0.28740730932203384,
-            0.25946769067796616,
-            0.23983712923728817,
-            0.22083554025423724,
-            0.208984375,
-            0.208984375,
-            0.20097325211864403,
-            0.6452668440931024,
-            0.20097325211864403,
-            0.20097325211864403,
-            0.7499525155141282,
-            0.33966922682137746,
-            0.21438029661016944,
-            0.22540386652542377,
-            0.2462592690677966,
-            0.2587725105932204,
-            0.2587725105932204,
-            0.2502648305084746,
-            0.17809851694915257,
-            0.16502251059322037,
-            0.1512513241525424
+            0.3981497751428108,
+            0.2510191357531575,
+            0.7309371972125331,
+            0.17278900399147268,
+            0.6484282253615083,
+            0.9775524733146642,
+            0.17819060065684966,
+            0.9179255698678095,
+            0.8591737610176148,
+            0.550319148161397,
+            0.21015087546167077,
+            0.0861156633457032,
+            0.1622826041501656,
+            0.6162616637368418,
+            0.06202740564370801,
+            0.10755785244430349,
+            0.9052541050394588,
+            0.30445223967339274,
+            0.5608245685587614,
+            0.6499859938994443,
+            0.05611216533385566,
+            0.5204826457023953,
+            0.8561124294995276,
+            0.9736908200580182,
+            0.5148624897499153,
+            0.9269521968485843,
+            0.954131801269014,
+            0.8930185185030552,
+            0.1760475995706996,
+            0.4215536289665648,
+            0.5537528139777502,
+            0.3902561375583543,
+            0.09292980952024688,
+            0.8814802327072017,
+            0.6171636785731754,
+            0.6452134731974568,
+            0.6573108568103705,
+            0.931958751848991,
+            0.5646986485610505,
+            0.3449758634870532,
+            0.4896299664551942,
+            0.7338579181132896,
+            0.6182382258211981,
+            0.18935828743761307,
+            0.6043465251459379,
+            0.2955274460385794,
+            0.8189915896364577,
+            0.5597644473169767,
+            0.20499488423768997,
+            0.9365638543295046,
+            0.5928909939227381,
+            0.06456832890008668,
+            0.554789768901499,
+            0.0556934528376245,
+            0.5788974815667043,
+            0.4913126266361165,
+            0.942646626707322,
+            0.6567283778113606,
+            0.2474790991745376,
+            0.8589157146113974,
+            0.3702652779130421,
+            0.33891510038942363,
+            0.9224723411794378,
+            0.5922770529365182
           ],
           "amps": [
-            0.6820671644576339,
-            0.09973395079016845,
-            0.32767753814084033,
-            0.6142068378935409,
-            0.02275541242996748,
-            0.6407840007230845,
-            0.47006939625355737,
-            0.7700138316974521,
-            0.8458772356368176,
-            0.9686274129421998,
-            0.6538897193810095,
-            0.8744835931347137,
-            0.7649170702376863,
-            0.16240504494623897,
-            0.5881648283982105,
-            0.3634362444795519
+            0.8845320617705366,
+            0.9033854736103051,
+            0.8325462714723397,
+            0.6851346793200317,
+            0.6519843101707373,
+            0.4540147173553237,
+            0.3440503509476045,
+            0.4371618720776512,
+            0.17141399344783181,
+            0.1804963861447011,
+            0.5978262298012117,
+            0.8377375091107044,
+            0.824098839116166,
+            0.09513599991403388,
+            0.9896477125758285,
+            0.004030449304002981
           ],
           "noiseEnvelope": {
             "domainMs": 1000,
@@ -136,22 +138,22 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
                 "curve": 0
               },
               {
-                "time": 0.2751909407138536,
-                "value": 0.8259242957746479,
-                "curve": 0.063
+                "time": 0.067,
+                "value": 0.082,
+                "curve": 0.883
               },
               {
-                "time": 1,
+                "time": 0.203,
                 "value": 0,
-                "curve": -0.335
+                "curve": -0.297
               }
             ]
           },
-          "pitchEnvCurve": 0.73,
-          "pitchEnvDurMs": 50,
-          "pitchEnvRange": 12,
-          "noiseLevel": 0.144,
-          "nzEnvDurMs": 53,
+          "pitchEnvCurve": 0.79,
+          "pitchEnvDurMs": 96,
+          "pitchEnvRange": 18.8,
+          "noiseLevel": 0.992,
+          "nzEnvDurMs": 7.2,
           "kickBodyFreqHz": 52,
           "kickBodyDecayMs": 360,
           "kickPitchDropSt": 11,
@@ -176,11 +178,163 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "randomizeSubBassDrivePerStep": false,
           "randomizeSubBassDecayMsPerStep": false,
           "randomizeSubBassWaveMixPerStep": false,
-          "masterGain": 0.757
+          "masterGain": 0.506
         }
       ],
       "tempo": 120,
-      "masterBusMode": "aggressive"
+      "masterBusMode": "balanced"
+    },
+    {
+      "id": 1775547848759,
+      "name": "Preset 9",
+      "source": "user",
+      "createdAt": 1775547848759,
+      "updatedAt": 1775550887823,
+      "voices": [
+        {
+          "voiceType": "perc",
+          "ampPatternSource": 0,
+          "ampMode": 5,
+          "rhythmMode": 0,
+          "tuning": 37.4,
+          "size": 0.136,
+          "hitPosition": 0.92,
+          "damping": 0.18,
+          "overtones": 0.67,
+          "lowEndDecay": 1,
+          "clickShape": [
+            0.4337380626533605,
+            0.4854042982753319,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.23998967907096766,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.5241539749918105,
+            0.517695695539064,
+            0.5112374160863176,
+            0.49832085718082475,
+            0.4918625777280783,
+            0.4854042982753319,
+            0.47248773936983907,
+            0.4466546215588533,
+            0.4337380626533605,
+            0.42082150374786764,
+            0.3949883859368819,
+            0.3691552681258962,
+            0.7824851531016676,
+            0.3174890325039248,
+            0.31103075305117833,
+            0.3045724735984319,
+            0.27873935578744624,
+            0.5112374160863176,
+            0.21415656125998195,
+            0.20769828180723554,
+            0.18832344344899624,
+            0.18832344344899624,
+            0.16249032563801052,
+            0.14957376673251768,
+            0.9762335366840604,
+            0.12374064892153197,
+            0.11082409001603911,
+            0.11082409001603911,
+            0.09790753111054626,
+            0.0849909722050534,
+            0.0849909722050534,
+            0.07207441329956055,
+            0.07207441329956055,
+            0.5887367695192748,
+            0.046241295488574835,
+            0.046241295488574835,
+            0
+          ],
+          "amps": [
+            0.47385804487180105,
+            0.6279582049273238,
+            0.8370941364312474,
+            0.34177219339563875,
+            0.25371495907819724,
+            1,
+            0.22069349620915665,
+            0.9031370621693285,
+            0.3087507305265982,
+            0.6059438963479633,
+            0.760044056403486,
+            0.46285089058212087,
+            0.22069349620915665,
+            0.9801871421970899,
+            0.6609796677963643,
+            0.7490369021138058
+          ],
+          "noiseEnvelope": {
+            "domainMs": 1000,
+            "points": [
+              {
+                "time": 0,
+                "value": 0.8898365390834524,
+                "curve": 0
+              },
+              {
+                "time": 0.7786559570919384,
+                "value": 0,
+                "curve": -0.8449999999999999
+              }
+            ]
+          },
+          "pitchEnvCurve": 0.73,
+          "pitchEnvDurMs": 50,
+          "pitchEnvRange": 12,
+          "noiseLevel": 0.184,
+          "nzEnvDurMs": 53.3,
+          "kickBodyFreqHz": 52,
+          "kickBodyDecayMs": 360,
+          "kickPitchDropSt": 11,
+          "kickPitchDropMs": 48,
+          "kickClickLevel": 0.16,
+          "kickClickDecayMs": 12,
+          "kickNoiseLevel": 0.04,
+          "kickNoiseDecayMs": 36,
+          "kickDrive": 0.14,
+          "kickTone": 0.58,
+          "subBassFreqHz": 43,
+          "subBassAttackMs": 6,
+          "subBassDecayMs": 520,
+          "subBassWaveMix": 0.2,
+          "subBassSubLevel": 0.66,
+          "subBassDrive": 0.12,
+          "subBassTone": 0.34,
+          "randomizeKickClickLevelPerStep": false,
+          "randomizeKickClickDecayMsPerStep": false,
+          "randomizeClickShapePerStep": false,
+          "randomizeNzEnvDurMsPerStep": false,
+          "randomizeSubBassDrivePerStep": false,
+          "randomizeSubBassDecayMsPerStep": false,
+          "randomizeSubBassWaveMixPerStep": false,
+          "masterGain": 1
+        }
+      ],
+      "tempo": 120,
+      "masterBusMode": "balanced"
     },
     {
       "id": 1775390421888,
@@ -199,6 +353,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -339,6 +494,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -479,6 +635,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.253,
           "damping": 0.925,
           "overtones": 0.216,
+          "lowEndDecay": 1,
           "clickShape": [
             0.0015338215079214734,
             0.9564206650006563,
@@ -624,6 +781,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.253,
           "damping": 0.925,
           "overtones": 0.216,
+          "lowEndDecay": 1,
           "clickShape": [
             0.0015338215079214734,
             0.9564206650006563,
@@ -769,6 +927,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.243,
           "damping": 0.191,
           "overtones": 0.815,
+          "lowEndDecay": 1,
           "clickShape": [
             0.6644217371940613,
             0.8241391777992249,
@@ -925,6 +1084,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.643,
           "damping": 0.206,
           "overtones": 0.816,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8787693404877102,
             0.355087997545093,
@@ -1031,7 +1191,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.689,
           "pitchEnvDurMs": 350,
-          "pitchEnvRange": -20.3,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 111.6,
           "kickBodyFreqHz": 41.1,
@@ -1070,6 +1230,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.699,
           "damping": 0.767,
           "overtones": 0.466,
+          "lowEndDecay": 1,
           "clickShape": [
             0.5786364552451682,
             0.8807101890508423,
@@ -1176,7 +1337,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": 0.999,
           "pitchEnvDurMs": 280,
-          "pitchEnvRange": -18.2,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 49.2,
           "kickBodyFreqHz": 41.1,
@@ -1215,6 +1376,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.91,
           "damping": 0.381,
           "overtones": 0.795,
+          "lowEndDecay": 1,
           "clickShape": [
             0.2659281365624384,
             0.9587277775351304,
@@ -1360,6 +1522,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.91,
           "damping": 0.381,
           "overtones": 0.795,
+          "lowEndDecay": 1,
           "clickShape": [
             0.2659281365624384,
             0.9587277775351304,
@@ -1505,6 +1668,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.743,
           "damping": 1,
           "overtones": 0,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8488446657298916,
             0.6414420605592798,
@@ -1666,6 +1830,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.643,
           "damping": 0.206,
           "overtones": 0.816,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8787693404877102,
             0.355087997545093,
@@ -1772,7 +1937,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.689,
           "pitchEnvDurMs": 350,
-          "pitchEnvRange": -20.3,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 111.6,
           "kickBodyFreqHz": 41.1,
@@ -1811,6 +1976,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.699,
           "damping": 0.767,
           "overtones": 0.466,
+          "lowEndDecay": 1,
           "clickShape": [
             0.9206087589263916,
             0.14257219433784485,
@@ -1917,7 +2083,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": 0.999,
           "pitchEnvDurMs": 280,
-          "pitchEnvRange": -18.2,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 86.7,
           "kickBodyFreqHz": 41.1,
@@ -1956,6 +2122,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.91,
           "damping": 0.381,
           "overtones": 0.795,
+          "lowEndDecay": 1,
           "clickShape": [
             0.5891060829162598,
             0.11605912446975708,
@@ -2101,6 +2268,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.91,
           "damping": 0.381,
           "overtones": 0.795,
+          "lowEndDecay": 1,
           "clickShape": [
             0.2659281365624384,
             0.9587277775351304,
@@ -2246,6 +2414,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.743,
           "damping": 1,
           "overtones": 0,
+          "lowEndDecay": 1,
           "clickShape": [
             0.9502517580986023,
             0.9423867464065552,
@@ -2407,6 +2576,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -2547,6 +2717,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.142,
           "damping": 0.707,
           "overtones": 0.368,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8747774362564087,
             0.18984903395175934,
@@ -2653,7 +2824,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.809,
           "pitchEnvDurMs": 275,
-          "pitchEnvRange": -20.1,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 146.3,
           "kickBodyFreqHz": 63.5,
@@ -2692,6 +2863,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.254,
           "damping": 1,
           "overtones": 0.997,
+          "lowEndDecay": 1,
           "clickShape": [
             0.12964028120040894,
             0.9355447888374329,
@@ -2837,6 +3009,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.92,
           "damping": 0.698,
           "overtones": 0.402,
+          "lowEndDecay": 1,
           "clickShape": [
             0.9928417801856995,
             0.27753904461860657,
@@ -2982,6 +3155,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.254,
           "damping": 1,
           "overtones": 0.997,
+          "lowEndDecay": 1,
           "clickShape": [
             0.5457650106949834,
             0.8351796825397967,
@@ -3138,6 +3312,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -3278,6 +3453,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.142,
           "damping": 0.707,
           "overtones": 0.368,
+          "lowEndDecay": 1,
           "clickShape": [
             0.5146510601043701,
             0.27463775873184204,
@@ -3384,7 +3560,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.809,
           "pitchEnvDurMs": 275,
-          "pitchEnvRange": -20.1,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 20.6,
           "kickBodyFreqHz": 63.5,
@@ -3423,6 +3599,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.254,
           "damping": 1,
           "overtones": 0.997,
+          "lowEndDecay": 1,
           "clickShape": [
             0.09341929852962494,
             0.9742839932441711,
@@ -3579,6 +3756,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -3719,6 +3897,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.979,
           "damping": 0.205,
           "overtones": 0.613,
+          "lowEndDecay": 1,
           "clickShape": [
             0.40085211396217346,
             0.8925780057907104,
@@ -3825,7 +4004,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.242,
           "pitchEnvDurMs": 162,
-          "pitchEnvRange": -16,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 77.5,
           "kickBodyFreqHz": 63.5,
@@ -3864,6 +4043,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.349,
           "damping": 0.8,
           "overtones": 0.484,
+          "lowEndDecay": 1,
           "clickShape": [
             0.580069899559021,
             0.9970011115074158,
@@ -4009,6 +4189,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.643,
           "damping": 0.206,
           "overtones": 0.816,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8787693404877102,
             0.355087997545093,
@@ -4115,7 +4296,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.689,
           "pitchEnvDurMs": 350,
-          "pitchEnvRange": -20.3,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 111.6,
           "kickBodyFreqHz": 41.1,
@@ -4165,6 +4346,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -4305,6 +4487,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.979,
           "damping": 0.205,
           "overtones": 0.613,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8354152912427512,
             0.27803639758424803,
@@ -4411,7 +4594,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.242,
           "pitchEnvDurMs": 162,
-          "pitchEnvRange": -16,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 182.2,
           "kickBodyFreqHz": 63.5,
@@ -4450,6 +4633,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.349,
           "damping": 0.8,
           "overtones": 0.484,
+          "lowEndDecay": 1,
           "clickShape": [
             0.12764678392088347,
             0.4592040297537575,
@@ -4595,6 +4779,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.643,
           "damping": 0.206,
           "overtones": 0.816,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8787693404877102,
             0.355087997545093,
@@ -4701,7 +4886,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.689,
           "pitchEnvDurMs": 350,
-          "pitchEnvRange": -20.3,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 111.6,
           "kickBodyFreqHz": 120,
@@ -4740,6 +4925,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.349,
           "damping": 0.8,
           "overtones": 0.484,
+          "lowEndDecay": 1,
           "clickShape": [
             0.12764678392088347,
             0.4592040297537575,
@@ -4896,6 +5082,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -5036,6 +5223,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.226,
           "damping": 0.042,
           "overtones": 0.187,
+          "lowEndDecay": 1,
           "clickShape": [
             0.8780534267425537,
             0.10252375155687332,
@@ -5142,7 +5330,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.997,
           "pitchEnvDurMs": 267,
-          "pitchEnvRange": -5,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 201.9,
           "kickBodyFreqHz": 63.5,
@@ -5181,6 +5369,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.226,
           "damping": 0.042,
           "overtones": 0.187,
+          "lowEndDecay": 1,
           "clickShape": [
             0.98688182769164,
             0.998212313421764,
@@ -5287,7 +5476,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           },
           "pitchEnvCurve": -0.997,
           "pitchEnvDurMs": 267,
-          "pitchEnvRange": -5,
+          "pitchEnvRange": -2,
           "noiseLevel": 1,
           "nzEnvDurMs": 42.6,
           "kickBodyFreqHz": 63.5,
@@ -5337,6 +5526,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.4337380626533605,
             0.4854042982753319,
@@ -5477,6 +5667,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.319,
           "damping": 0,
           "overtones": 0.231,
+          "lowEndDecay": 1,
           "clickShape": [
             0.6107021570205688,
             0.2862228453159332,
@@ -5622,6 +5813,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.78,
           "damping": 0.666,
           "overtones": 0.412,
+          "lowEndDecay": 1,
           "clickShape": [
             0.23015244754211805,
             0.8330402044214001,
@@ -5767,6 +5959,7 @@ Der JSON-Block unten enthaelt die vollstaendigen Preset-Daten fuer den Reload.
           "hitPosition": 0.88,
           "damping": 0.021,
           "overtones": 0.67,
+          "lowEndDecay": 1,
           "clickShape": [
             0.3957891949152542,
             0.4169756355932204,
