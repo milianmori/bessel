@@ -31,7 +31,14 @@
             <label class="control header-tempo-control">
               <span>Tempo</span>
               <div class="value-row">
-                <output id="tempo-output">118 BPM</output>
+                <input
+                  id="tempo-value-input"
+                  class="value-input"
+                  type="text"
+                  inputmode="decimal"
+                  value="118"
+                  aria-label="Tempo Wert"
+                />
               </div>
               <input id="tempo-input" type="range" min="48" max="192" step="1" value="118" />
             </label>

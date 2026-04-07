@@ -2,7 +2,6 @@ import {
   cloneState,
   computeVoiceAnalysis,
   createDefaultMasterBusState,
-  formatValue,
   loadPresets,
   restoreVoiceState,
   summarizeFrequencies,
@@ -47,7 +46,7 @@ const elements = {
   initStateButton: document.querySelector("#init-state-button"),
   addVoiceButton: document.querySelector("#add-voice-button"),
   tempoInput: document.querySelector("#tempo-input"),
-  tempoOutput: document.querySelector("#tempo-output"),
+  tempoValueInput: document.querySelector("#tempo-value-input"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
   headerVoiceList: document.querySelector("#header-voice-list"),
@@ -68,6 +67,7 @@ const elements = {
 };
 
 const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
+const segmentCurveDefinition = { key: "segmentCurve", label: "Segment Curve", min: -1, max: 1, step: 0.001 };
 
 const MASTER_BUS_TOGGLE_DEFINITIONS = [
   {
@@ -899,11 +899,25 @@ function wireGlobalActions() {
     refreshTransportControls();
     syncAll();
   });
+
+  bindKeyboardValueInput({
+    input: elements.tempoValueInput,
+    label: tempoDefinition.label,
+    min: tempoDefinition.min,
+    max: tempoDefinition.max,
+    step: tempoDefinition.step,
+    getValue: () => appState.tempo,
+    setValue: (value) => {
+      appState.tempo = value;
+      refreshTransportControls();
+      syncAll();
+    },
+  });
 }
 
 function refreshTransportControls() {
   elements.tempoInput.value = String(toSliderValue(tempoDefinition, appState.tempo));
-  elements.tempoOutput.textContent = formatValue("tempo", appState.tempo);
+  syncKeyboardValueInput(elements.tempoValueInput, appState.tempo, tempoDefinition.step);
   elements.startButton.textContent = appState.running ? "Stop" : "Start";
 }
 
@@ -1091,8 +1105,16 @@ function createVoiceCardShell(voice, index) {
         <div class="controls-grid compact-grid">
           <label class="control">
             <span>Segment Curve</span>
+            <div class="value-row">
+              <input
+                class="voice-segment-curve-input value-input"
+                type="text"
+                inputmode="decimal"
+                value="0"
+                aria-label="Segment Curve Wert"
+              />
+            </div>
             <input class="voice-segment-curve" type="range" min="-1" max="1" step="0.001" value="0" />
-            <output class="voice-segment-curve-value">0.000</output>
           </label>
         </div>
       </section>
@@ -1147,9 +1169,9 @@ function createVoiceCardShell(voice, index) {
     addPointButton: root.querySelector(".voice-add-point-button"),
     removePointButton: root.querySelector(".voice-remove-point-button"),
     segmentCurve: root.querySelector(".voice-segment-curve"),
-    segmentCurveValue: root.querySelector(".voice-segment-curve-value"),
+    segmentCurveInput: root.querySelector(".voice-segment-curve-input"),
     controlInputs: new Map(),
-    controlOutputs: new Map(),
+    controlValueInputs: new Map(),
     stepRandomInputs: new Map(),
     currentScalarType: null,
     currentStepRandomType: null,
@@ -1293,13 +1315,19 @@ function initializeVoiceCard(view, voiceId, index) {
 
   view.segmentCurve.addEventListener("input", (event) => {
     event.stopPropagation();
-    setActiveVoice(voiceId, { syncAnalysis: false });
-    const value = Number(view.segmentCurve.value);
-    view.envelopeEditor.setCurve(value);
-    const voice = getVoiceById(voiceId);
-    voice.noiseEnvelope.points = view.envelopeEditor.points.map((point) => ({ ...point }));
-    updateVoiceCurveControl(view);
-    syncAll();
+    setVoiceSegmentCurve(view, voiceId, Number(view.segmentCurve.value));
+  });
+
+  bindKeyboardValueInput({
+    input: view.segmentCurveInput,
+    label: segmentCurveDefinition.label,
+    min: segmentCurveDefinition.min,
+    max: segmentCurveDefinition.max,
+    step: segmentCurveDefinition.step,
+    getValue: () => view.envelopeEditor?.getSelectedCurve() ?? 0,
+    setValue: (value) => {
+      setVoiceSegmentCurve(view, voiceId, value);
+    },
   });
 
   updateVoiceCurveControl(view);
@@ -1525,7 +1553,7 @@ function estimateSubBassToneHz(voice) {
 function rebuildVoiceScalarControls(view, voiceId, voiceType) {
   view.currentScalarType = voiceType;
   view.controlInputs.clear();
-  view.controlOutputs.clear();
+  view.controlValueInputs.clear();
   view.scalarControls.textContent = "";
 
   getVoiceScalarDefinitions(voiceType).forEach((definition) => {
@@ -1538,8 +1566,7 @@ function rebuildVoiceScalarControls(view, voiceId, voiceType) {
     const valueRow = document.createElement("div");
     valueRow.className = "value-row";
 
-    const output = document.createElement("output");
-    view.controlOutputs.set(definition.key, output);
+    const valueInput = document.createElement("input");
 
     const input = document.createElement("input");
     input.type = "range";
@@ -1547,7 +1574,7 @@ function rebuildVoiceScalarControls(view, voiceId, voiceType) {
     input.max = String(definition.transform === "log" ? 1 : definition.max);
     input.step = String(definition.transform === "log" ? 0.0001 : definition.step);
 
-    input.addEventListener("input", () => {
+    const applyValue = (value) => {
       const voice = getVoiceById(voiceId);
 
       if (!voice) {
@@ -1555,13 +1582,31 @@ function rebuildVoiceScalarControls(view, voiceId, voiceType) {
       }
 
       setActiveVoice(voiceId, { syncAnalysis: false });
-      voice[definition.key] = fromSliderValue(definition, Number(input.value));
-      output.textContent = formatValue(definition.key, voice[definition.key]);
+      voice[definition.key] = value;
+      input.value = String(toSliderValue(definition, value));
+      syncKeyboardValueInput(valueInput, value, definition.step);
       syncAll();
+    };
+
+    input.addEventListener("input", () => {
+      applyValue(fromSliderValue(definition, Number(input.value)));
+    });
+
+    bindKeyboardValueInput({
+      input: valueInput,
+      label: definition.label,
+      min: definition.min,
+      max: definition.max,
+      step: definition.step,
+      getValue: () => getVoiceById(voiceId)?.[definition.key] ?? definition.min,
+      setValue: (value) => {
+        applyValue(value);
+      },
     });
 
     view.controlInputs.set(definition.key, input);
-    valueRow.append(output);
+    view.controlValueInputs.set(definition.key, valueInput);
+    valueRow.append(valueInput);
     control.append(title, valueRow, input);
     view.scalarControls.append(control);
   });
@@ -1647,14 +1692,14 @@ function refreshVoiceView(view) {
 
   getVoiceScalarDefinitions(voice.voiceType).forEach((definition) => {
     const input = view.controlInputs.get(definition.key);
-    const output = view.controlOutputs.get(definition.key);
+    const valueInput = view.controlValueInputs.get(definition.key);
 
-    if (!input || !output) {
+    if (!input) {
       return;
     }
 
     input.value = String(toSliderValue(definition, voice[definition.key]));
-    output.textContent = formatValue(definition.key, voice[definition.key]);
+    syncKeyboardValueInput(valueInput, voice[definition.key], definition.step);
   });
 
   getVoiceStepRandomizationDefinitions(voice.voiceType).forEach((definition) => {
@@ -1686,7 +1731,21 @@ function refreshVoicePatternControls(view, voice) {
 function updateVoiceCurveControl(view) {
   const curve = view.envelopeEditor?.getSelectedCurve() ?? 0;
   view.segmentCurve.value = String(curve);
-  view.segmentCurveValue.textContent = curve.toFixed(3);
+  syncKeyboardValueInput(view.segmentCurveInput, curve, segmentCurveDefinition.step);
+}
+
+function setVoiceSegmentCurve(view, voiceId, value) {
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  view.envelopeEditor.setCurve(value);
+  const voice = getVoiceById(voiceId);
+
+  if (!voice) {
+    return;
+  }
+
+  voice.noiseEnvelope.points = view.envelopeEditor.points.map((point) => ({ ...point }));
+  updateVoiceCurveControl(view);
+  syncAll();
 }
 
 function refreshActiveVoiceStyles() {
@@ -2444,6 +2503,128 @@ function fromSliderValue(definition, value) {
   const min = Math.log(definition.min);
   const max = Math.log(definition.max);
   return Math.exp(min + value * (max - min));
+}
+
+function bindKeyboardValueInput({ input, label, min, max, step, getValue, setValue }) {
+  if (!input) {
+    return;
+  }
+
+  input.classList.add("value-input");
+  input.type = "text";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.setAttribute("aria-label", `${label} Wert`);
+  syncKeyboardValueInput(input, getValue(), step);
+
+  const resetValue = () => {
+    syncKeyboardValueInput(input, getValue(), step);
+  };
+
+  const commitValue = () => {
+    const value = parseKeyboardValueInput(input.value, { min, max, step });
+
+    if (value === null) {
+      resetValue();
+      return;
+    }
+
+    setValue(value);
+    resetValue();
+  };
+
+  input.addEventListener("focus", () => {
+    input.select();
+  });
+
+  input.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
+
+  input.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  input.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitValue();
+      input.select();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      resetValue();
+      input.blur();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    commitValue();
+  });
+}
+
+function syncKeyboardValueInput(input, value, step) {
+  if (!input) {
+    return;
+  }
+
+  input.value = formatKeyboardValue(value, step);
+}
+
+function formatKeyboardValue(value, step = null) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  if (!step) {
+    return String(value);
+  }
+
+  const precision = Math.max(0, countDecimals(step));
+  return trimTrailingZeros(Number(value).toFixed(precision));
+}
+
+function parseKeyboardValueInput(rawValue, { min, max, step }) {
+  const normalizedText = String(rawValue ?? "")
+    .trim()
+    .replace(/,/g, ".");
+
+  if (!normalizedText) {
+    return null;
+  }
+
+  const numericValue = Number(normalizedText);
+
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  return quantizeValue(numericValue, min, max, step);
+}
+
+function quantizeValue(value, min, max, step = null) {
+  const clampedValue = clamp(value, min, max);
+
+  if (!step) {
+    return clampedValue;
+  }
+
+  const steps = Math.round((clampedValue - min) / step);
+  const precision = Math.max(0, countDecimals(step));
+  return Number(clamp(min + steps * step, min, max).toFixed(precision));
+}
+
+function trimTrailingZeros(value) {
+  if (!value.includes(".")) {
+    return value;
+  }
+
+  return value.replace(/\.?0+$/, "");
 }
 
 function randomizeScalarValue(definition) {

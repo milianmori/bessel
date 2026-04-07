@@ -589,7 +589,7 @@ h3 {
 
 .controls-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(122px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
   gap: 0.5rem;
 }
 
@@ -601,6 +601,7 @@ h3 {
 .control {
   display: grid;
   gap: 0.28rem;
+  min-width: 0;
   padding: 0.58rem;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -615,15 +616,27 @@ h3 {
 
 .control .value-row {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 0.5rem;
   align-items: center;
   color: var(--text);
   font-size: 0.78rem;
 }
 
-.control input[type="range"] {
+.control .value-row input.value-input {
   width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.58rem;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.control input[type="range"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .control input[type="range"]:disabled {
@@ -649,7 +662,6 @@ h3 {
   color: rgba(237, 241, 246, 0.42);
 }
 
-.control output,
 .control select {
   color: var(--text);
 }
@@ -966,7 +978,7 @@ canvas {
   }
 
   .controls-grid {
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
   }
 
   .viz-grid {
