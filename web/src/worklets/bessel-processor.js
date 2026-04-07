@@ -132,6 +132,7 @@ class ErsatzBesselProcessor extends AudioWorkletProcessor {
 const MAX_MODAL_FREQUENCY_FACTOR = 8;
 const LOW_END_DECAY_MIN_FREQUENCY = 50;
 const LOW_END_DECAY_MAX_FREQUENCY = 1600;
+const PERC_GLUE_KNEE_DB = 4.5;
 const RUNAWAY_STATE_LIMIT = 64;
 const TWO_PI = Math.PI * 2;
 
@@ -149,6 +150,9 @@ function createVoiceRuntime(config) {
     noiseLevel: 1,
     nzEnvDurMs: 50,
     lowEndDecay: 1,
+    percGlueAmount: 0.28,
+    percGlueAttackMs: 10,
+    percGlueReleaseMs: 180,
     kickBodyFreqHz: 52,
     kickBodyDecayMs: 360,
     kickPitchDropSt: 11,
@@ -182,6 +186,7 @@ function createVoiceRuntime(config) {
       { time: 0.78, value: 0, curve: -0.845 },
     ],
     modeStates: createModeStates(frequencies.length),
+    percGlueEnvelope: 0,
     panLeft: 1,
     panRight: 0,
     clickIndex: 64,
@@ -250,6 +255,18 @@ function applyVoiceConfig(voice, config) {
 
   if (typeof config.lowEndDecay === "number") {
     voice.lowEndDecay = clamp(config.lowEndDecay, 0.25, 2);
+  }
+
+  if (typeof config.percGlueAmount === "number") {
+    voice.percGlueAmount = clamp(config.percGlueAmount, 0, 1);
+  }
+
+  if (typeof config.percGlueAttackMs === "number") {
+    voice.percGlueAttackMs = clamp(config.percGlueAttackMs, 0.5, 80);
+  }
+
+  if (typeof config.percGlueReleaseMs === "number") {
+    voice.percGlueReleaseMs = clamp(config.percGlueReleaseMs, 20, 800);
   }
 
   if (typeof config.kickBodyFreqHz === "number") {
@@ -369,6 +386,7 @@ function resetVoiceState(voice, clearModes) {
   voice.noiseAmp = 0;
   voice.pitchRemaining = 0;
   voice.pitchTotal = 1;
+  voice.percGlueEnvelope = 0;
   voice.kickAmplitude = 0;
   voice.kickBodyRemaining = 0;
   voice.kickBodyTotal = 1;
@@ -568,10 +586,13 @@ function renderPercFrame(voice) {
   const mixedCenter = center / Math.sqrt(Math.max(1, centerCount));
   const mixedLeft = sideLeft / Math.sqrt(sideCount);
   const mixedRight = sideRight / Math.sqrt(sideCount);
+  const rawLeft = mixedCenter + mixedLeft;
+  const rawRight = mixedCenter + mixedRight;
+  const glued = applyPercGlueCompressor(voice, rawLeft, rawRight);
 
   return {
-    left: (mixedCenter + mixedLeft) * voice.masterGain,
-    right: (mixedCenter + mixedRight) * voice.masterGain,
+    left: glued.left * voice.masterGain,
+    right: glued.right * voice.masterGain,
   };
 }
 
@@ -751,6 +772,32 @@ function computePercModeDamping(baseQ, frequency, lowEndDecay) {
   return clamp(baseQ * dampingScale, 0.0001, 2);
 }
 
+function applyPercGlueCompressor(voice, left, right) {
+  if (voice.percGlueAmount <= 0.0001) {
+    return { left, right };
+  }
+
+  const peak = Math.max(Math.abs(left), Math.abs(right));
+  const rms = Math.sqrt((left * left + right * right) * 0.5);
+  const detector = lerp(rms, peak, 0.45 + voice.percGlueAmount * 0.4);
+  const attackCoeff = computeTimeCoefficient(voice.percGlueAttackMs);
+  const releaseCoeff = computeTimeCoefficient(voice.percGlueReleaseMs);
+  const envelopeCoeff = detector > voice.percGlueEnvelope ? attackCoeff : releaseCoeff;
+  voice.percGlueEnvelope = envelopeCoeff * voice.percGlueEnvelope + (1 - envelopeCoeff) * detector;
+
+  const thresholdDb = lerp(-3, -36, voice.percGlueAmount);
+  const ratio = lerp(1, 12, voice.percGlueAmount ** 0.82);
+  const envelopeDb = gainToDb(voice.percGlueEnvelope);
+  const gainReductionDb = computeSoftKneeGainReductionDb(envelopeDb, thresholdDb, ratio, PERC_GLUE_KNEE_DB);
+  const makeupDb = voice.percGlueAmount * 1.8 + gainReductionDb * (0.04 + voice.percGlueAmount * 0.07);
+  const appliedGain = dbToGain(makeupDb - gainReductionDb);
+
+  return {
+    left: sanitize(left * appliedGain),
+    right: sanitize(right * appliedGain),
+  };
+}
+
 function computeLowEndWeight(frequency) {
   const clampedFrequency = clamp(frequency, LOW_END_DECAY_MIN_FREQUENCY, LOW_END_DECAY_MAX_FREQUENCY);
   const minLog = Math.log2(LOW_END_DECAY_MIN_FREQUENCY);
@@ -766,6 +813,32 @@ function applyDrive(value, drive) {
 
   const gain = 1 + drive * 10;
   return Math.tanh(value * gain) / Math.tanh(gain);
+}
+
+function computeTimeCoefficient(timeMs) {
+  const safeTimeMs = Math.max(timeMs, 0.001);
+  return Math.exp(-1 / ((safeTimeMs / 1000) * sampleRate));
+}
+
+function computeSoftKneeGainReductionDb(levelDb, thresholdDb, ratio, kneeDb) {
+  if (ratio <= 1.0001) {
+    return 0;
+  }
+
+  const overshootDb = levelDb - thresholdDb;
+  const halfKneeDb = kneeDb * 0.5;
+  const slope = 1 - 1 / ratio;
+
+  if (overshootDb <= -halfKneeDb) {
+    return 0;
+  }
+
+  if (overshootDb >= halfKneeDb) {
+    return overshootDb * slope;
+  }
+
+  const kneeProgressDb = overshootDb + halfKneeDb;
+  return slope * (kneeProgressDb * kneeProgressDb) / Math.max(kneeDb * 2, 0.000001);
 }
 
 function evaluateEnvelope(points, phase) {
@@ -820,8 +893,20 @@ function sanitize(value) {
   return value;
 }
 
+function gainToDb(value) {
+  return 20 * Math.log10(Math.max(value, 1e-6));
+}
+
+function dbToGain(value) {
+  return 10 ** (value / 20);
+}
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function lerp(start, end, amount) {
+  return start + (end - start) * amount;
 }
 
 function randomInRange(min, max, step = null) {

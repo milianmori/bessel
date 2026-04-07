@@ -177,6 +177,9 @@ const percVoiceScalarDefinitions = [
   { key: "pitchEnvCurve", label: "Pitch Env Curve", min: -1, max: 1, step: 0.001 },
   { key: "noiseLevel", label: "Noise Volume", min: 0, max: 1, step: 0.001 },
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },
+  { key: "percGlueAmount", label: "Glue Amount", min: 0, max: 1, step: 0.001 },
+  { key: "percGlueAttackMs", label: "Glue Attack", min: 0.5, max: 80, step: 0.1 },
+  { key: "percGlueReleaseMs", label: "Glue Release", min: 20, max: 800, step: 1 },
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
 const percLowEndDecayDefinition = percVoiceScalarDefinitions.find((definition) => definition.key === "lowEndDecay");
@@ -2181,7 +2184,14 @@ function regenerateVoicePattern(voiceId) {
 
 function randomizePercVoiceState(voice) {
   getVoiceScalarDefinitions("perc")
-    .filter((definition) => definition.key !== "masterGain" && definition.key !== "lowEndDecay")
+    .filter(
+      (definition) =>
+        definition.key !== "masterGain" &&
+        definition.key !== "lowEndDecay" &&
+        definition.key !== "percGlueAmount" &&
+        definition.key !== "percGlueAttackMs" &&
+        definition.key !== "percGlueReleaseMs",
+    )
     .forEach((definition) => {
       voice[definition.key] = randomizeScalarValue(definition);
     });

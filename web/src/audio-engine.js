@@ -172,6 +172,9 @@ function buildProcessorConfig(state, analysisByVoice, options) {
       return {
         ...baseConfig,
         lowEndDecay: voice.lowEndDecay,
+        percGlueAmount: voice.percGlueAmount,
+        percGlueAttackMs: voice.percGlueAttackMs,
+        percGlueReleaseMs: voice.percGlueReleaseMs,
         pitchEnvDurMs: voice.pitchEnvDurMs,
         pitchEnvCurve: voice.pitchEnvCurve,
         pitchEnvRange: voice.pitchEnvRange,

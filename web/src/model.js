@@ -39,6 +39,9 @@ const DEFAULT_PRESET_VALUES = {
   damping: 0.5,
   overtones: 0.52,
   lowEndDecay: 1,
+  percGlueAmount: 0.28,
+  percGlueAttackMs: 10,
+  percGlueReleaseMs: 180,
   pitchEnvCurve: 0,
   pitchEnvDurMs: 50,
   pitchEnvRange: 0,
@@ -317,6 +320,7 @@ export function formatValue(key, value) {
     case "damping":
     case "overtones":
     case "lowEndDecay":
+    case "percGlueAmount":
     case "noiseLevel":
     case "kickClickLevel":
     case "kickNoiseLevel":
@@ -332,6 +336,8 @@ export function formatValue(key, value) {
       return `${Math.round(value)} BPM`;
     case "pitchEnvDurMs":
     case "nzEnvDurMs":
+    case "percGlueAttackMs":
+    case "percGlueReleaseMs":
     case "kickBodyDecayMs":
     case "kickPitchDropMs":
     case "kickClickDecayMs":
@@ -517,6 +523,30 @@ function normalizeVoicePayload(raw = {}) {
       0.25,
       2,
     ),
+    percGlueAmount: clamp(
+      readScalar(
+        raw.percGlueAmount ?? raw.perc_glue_amount ?? raw.glueAmount ?? raw.glue_amount,
+        DEFAULT_PRESET_VALUES.percGlueAmount,
+      ),
+      0,
+      1,
+    ),
+    percGlueAttackMs: clamp(
+      readScalar(
+        raw.percGlueAttackMs ?? raw.perc_glue_attack_ms ?? raw.glueAttackMs ?? raw.glue_attack_ms,
+        DEFAULT_PRESET_VALUES.percGlueAttackMs,
+      ),
+      0.5,
+      80,
+    ),
+    percGlueReleaseMs: clamp(
+      readScalar(
+        raw.percGlueReleaseMs ?? raw.perc_glue_release_ms ?? raw.glueReleaseMs ?? raw.glue_release_ms,
+        DEFAULT_PRESET_VALUES.percGlueReleaseMs,
+      ),
+      20,
+      800,
+    ),
     clickShape: ensureLength(raw.clickShape ?? raw.click_shape, 64, 0.5),
     amps: ensureLength(raw.amps, 16, 0.6),
     noiseEnvelope: parseNoiseEnvelope(raw.noiseEnvelope ?? raw.noiz_env),
@@ -646,6 +676,9 @@ function serializeVoicePayload(raw = {}) {
     damping: normalizedState.damping,
     overtones: normalizedState.overtones,
     lowEndDecay: normalizedState.lowEndDecay,
+    percGlueAmount: normalizedState.percGlueAmount,
+    percGlueAttackMs: normalizedState.percGlueAttackMs,
+    percGlueReleaseMs: normalizedState.percGlueReleaseMs,
     clickShape: [...normalizedState.clickShape],
     amps: [...normalizedState.amps],
     noiseEnvelope: {

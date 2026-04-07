@@ -6,6 +6,11 @@ Aktueller Signalfluss der Web-Audio-Engine mit messbasiertem Master-Bus.
 Per-Voice Synthesis
   kick / subbass / perc modal voices
           |
+          +--> perc only:
+          |      Perc Glue Compressor
+          |        stereo-linked soft knee
+          |        Amount / Attack / Release
+          |
           v
 Voice Mix
   Summe aller aktiven Voices
@@ -70,6 +75,7 @@ AudioContext Destination
 
 ## Regeln
 
+- `Perc`-Voices koennen vor dem Voice-Mix leicht geglued werden, damit unterschiedliche Modal-Sounds weniger stark im Pegel springen.
 - Der Master-Bus misst nicht permanent neue Thresholds oder Attacks, sondern nur nach relevanten Aenderungen.
 - Waehren der Messung bleibt die Band-Detection live; nach Abschluss werden pro Band feste Arbeitswerte gesetzt.
 - Die Dropdown-Modi verschieben diese gesetzten Werte in unterschiedliche Richtungen:
