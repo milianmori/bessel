@@ -46,6 +46,9 @@ const elements = {
   initStateButton: document.querySelector("#init-state-button"),
   tempoInput: document.querySelector("#tempo-input"),
   tempoValueInput: document.querySelector("#tempo-value-input"),
+  stepRandomChanceInput: document.querySelector("#step-random-chance-input"),
+  stepRandomChanceValueInput: document.querySelector("#step-random-chance-value-input"),
+  stepRandomChanceNote: document.querySelector("#step-random-chance-note"),
   statusLine: document.querySelector("#status-line"),
   stepGrid: document.querySelector("#step-grid"),
   headerVoiceTypeControls: document.querySelector("#header-voice-type-controls"),
@@ -67,6 +70,13 @@ const elements = {
 };
 
 const tempoDefinition = { key: "tempo", label: "Tempo", min: 48, max: 192, step: 1 };
+const stepRandomChanceDefinition = {
+  key: "stepRandomizationChance",
+  label: "Per Step Chance",
+  min: 0,
+  max: 100,
+  step: 1,
+};
 const segmentCurveDefinition = { key: "segmentCurve", label: "Segment Curve", min: -1, max: 1, step: 0.001 };
 const DEFAULT_NEW_PERC_MASTER_GAIN = 0.5;
 const DEFAULT_NEW_KICK_MASTER_GAIN = 1;
@@ -228,6 +238,13 @@ const voiceStepRandomizationDefinitions = {
     { key: "randomizeSubBassWaveMixPerStep", label: "Wave Mix" },
   ],
 };
+const ALL_STEP_RANDOMIZATION_KEYS = [
+  ...new Set(
+    Object.values(voiceStepRandomizationDefinitions).flatMap((definitions) =>
+      definitions.map((definition) => definition.key),
+    ),
+  ),
+];
 
 let presets = [];
 let factoryPresets = [];
@@ -299,6 +316,7 @@ async function bootstrap() {
   };
 
   refreshTransportControls();
+  refreshStepRandomChanceControl();
   syncAll({ resetTransport: true });
   renderScopeLoop();
 
@@ -439,6 +457,7 @@ function buildInitialAppState() {
         tempo: restoredSession.tempo,
         activeVoiceId: activeVoiceExists ? restoredSession.activeVoiceId : restoredVoices[0].voiceId,
         voices: restoredVoices,
+        stepRandomizationChance: restoredSession.stepRandomizationChance ?? 0,
         masterBus: restoredSession.masterBus ?? createDefaultMasterBusState(),
       },
     };
@@ -468,6 +487,7 @@ function buildInitialAppState() {
       tempo: 118,
       activeVoiceId: firstVoice.voiceId,
       voices: [firstVoice],
+      stepRandomizationChance: 0,
       masterBus: createDefaultMasterBusState(),
     },
   };
@@ -1086,12 +1106,80 @@ function wireGlobalActions() {
       syncAll();
     },
   });
+
+  elements.stepRandomChanceInput.addEventListener("input", () => {
+    setStepRandomizationChance(Number(elements.stepRandomChanceInput.value));
+  });
+
+  elements.stepRandomChanceInput.addEventListener("change", () => {
+    setStepRandomizationChance(Number(elements.stepRandomChanceInput.value), { announce: true });
+  });
+
+  bindKeyboardValueInput({
+    input: elements.stepRandomChanceValueInput,
+    label: stepRandomChanceDefinition.label,
+    min: stepRandomChanceDefinition.min,
+    max: stepRandomChanceDefinition.max,
+    step: stepRandomChanceDefinition.step,
+    getValue: () => appState.stepRandomizationChance,
+    setValue: (value) => {
+      setStepRandomizationChance(value, { announce: true });
+    },
+  });
 }
 
 function refreshTransportControls() {
   elements.tempoInput.value = String(toSliderValue(tempoDefinition, appState.tempo));
   syncKeyboardValueInput(elements.tempoValueInput, appState.tempo, tempoDefinition.step);
   elements.startButton.textContent = appState.running ? "Stop" : "Start";
+}
+
+function refreshStepRandomChanceControl() {
+  const chance = clamp(
+    Number(appState?.stepRandomizationChance) || 0,
+    stepRandomChanceDefinition.min,
+    stepRandomChanceDefinition.max,
+  );
+  elements.stepRandomChanceInput.value = String(chance);
+  syncKeyboardValueInput(
+    elements.stepRandomChanceValueInput,
+    chance,
+    stepRandomChanceDefinition.step,
+  );
+
+  if (!(elements.stepRandomChanceNote instanceof HTMLElement)) {
+    return;
+  }
+
+  if (chance <= 0) {
+    elements.stepRandomChanceNote.textContent =
+      "Beim Randomize bleiben alle Per-Step-Checkboxen aus.";
+    return;
+  }
+
+  if (chance >= 100) {
+    elements.stepRandomChanceNote.textContent =
+      "Beim Randomize werden alle Per-Step-Checkboxen aktiviert.";
+    return;
+  }
+
+  elements.stepRandomChanceNote.textContent =
+    `Beim Randomize wird jede Per-Step-Checkbox mit ${chance} % Wahrscheinlichkeit aktiviert.`;
+}
+
+function setStepRandomizationChance(value, { announce = false } = {}) {
+  appState.stepRandomizationChance = quantizeValue(
+    value,
+    stepRandomChanceDefinition.min,
+    stepRandomChanceDefinition.max,
+    stepRandomChanceDefinition.step,
+  );
+  refreshStepRandomChanceControl();
+  persistSession();
+
+  if (announce) {
+    setStatus(`Per-Step-Random-Chance: ${appState.stepRandomizationChance} %.`);
+  }
 }
 
 function randomizeTempo() {
@@ -1731,6 +1819,27 @@ function getVoiceStepRandomizationDefinitions(voiceType) {
   return voiceStepRandomizationDefinitions[voiceType] ?? voiceStepRandomizationDefinitions.perc;
 }
 
+function randomizeVoiceStepRandomizationFlags(voice) {
+  if (!voice) {
+    return;
+  }
+
+  const activationChance =
+    clamp(
+      Number(appState?.stepRandomizationChance) || 0,
+      stepRandomChanceDefinition.min,
+      stepRandomChanceDefinition.max,
+    ) / 100;
+
+  ALL_STEP_RANDOMIZATION_KEYS.forEach((key) => {
+    voice[key] = false;
+  });
+
+  getVoiceStepRandomizationDefinitions(voice.voiceType).forEach((definition) => {
+    voice[definition.key] = Math.random() < activationChance;
+  });
+}
+
 function getVoiceTypeLabel(voiceType) {
   if (voiceType === "kick") {
     return "Kick";
@@ -2134,6 +2243,14 @@ function loadPresetStack(presetId) {
 
   const presetTempo = Number(preset.tempo);
   const hasPresetTempo = Number.isFinite(presetTempo) && presetTempo > 0;
+  const presetStepRandomizationChance =
+    preset.stepRandomizationChance === null || preset.stepRandomizationChance === undefined
+      ? null
+      : Number(preset.stepRandomizationChance);
+  const hasPresetStepRandomizationChance =
+    Number.isFinite(presetStepRandomizationChance) &&
+    presetStepRandomizationChance >= 0 &&
+    presetStepRandomizationChance <= 100;
 
   appState.voices = createVoicesFromPreset(preset);
   appState.activeVoiceId = appState.voices[Math.min(currentActiveIndex, appState.voices.length - 1)].voiceId;
@@ -2148,10 +2265,15 @@ function loadPresetStack(presetId) {
     renderMasterBusControls();
   }
 
+  if (hasPresetStepRandomizationChance) {
+    appState.stepRandomizationChance = presetStepRandomizationChance;
+    refreshStepRandomChanceControl();
+  }
+
   renderVoiceCards();
   syncAll({ measureMasterBus: "immediate" });
   setStatus(
-    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}${preset.masterBusMode ? ` Modus ${getMasterBusModeLabel(preset.masterBusMode)}.` : ""}`,
+    `Preset "${preset.name}" geladen. ${appState.voices.length} Voices aktiv.${hasPresetTempo ? ` ${Math.round(appState.tempo)} BPM.` : ""}${preset.masterBusMode ? ` Modus ${getMasterBusModeLabel(preset.masterBusMode)}.` : ""}${hasPresetStepRandomizationChance ? ` Per-Step ${appState.stepRandomizationChance} %.` : ""}`,
   );
 }
 
@@ -2315,18 +2437,21 @@ function randomizePercVoiceState(voice) {
   randomizePercSoundState(voice);
   randomizeVoicePatternMode(voice);
   voice.amps = buildAmpPatternForVoice(voice);
+  randomizeVoiceStepRandomizationFlags(voice);
 }
 
 function randomizeKickVoiceState(voice) {
   randomizeKickSoundState(voice);
   randomizeVoicePatternMode(voice);
   voice.amps = buildAmpPatternForVoice(voice);
+  randomizeVoiceStepRandomizationFlags(voice);
 }
 
 function randomizeSubBassVoiceState(voice) {
   randomizeSubBassSoundState(voice);
   randomizeSubBassPattern(voice);
   voice.amps = buildAmpPatternForVoice(voice);
+  randomizeVoiceStepRandomizationFlags(voice);
 }
 
 function randomizeVoiceSoundState(voice) {
@@ -2418,6 +2543,7 @@ async function saveStackAsUserPreset() {
     presetToOverwrite,
     appState.tempo,
     appState.masterBus.mode,
+    appState.stepRandomizationChance,
   );
   const nextUserPresets = [preset, ...userPresets.filter((entry) => entry.id !== preset.id)];
   const persistence = await commitUserPresetChanges(nextUserPresets);
@@ -2449,6 +2575,7 @@ async function updateUserPresetFromStack() {
     presetToOverwrite,
     appState.tempo,
     appState.masterBus.mode,
+    appState.stepRandomizationChance,
   );
   const nextUserPresets = [updatedPreset, ...userPresets.filter((entry) => !presetIdsToRemove.has(entry.id))];
   const persistence = await commitUserPresetChanges(nextUserPresets);

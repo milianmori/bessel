@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Rhythm Computer</title>
-    <script type="module" crossorigin src="/assets/index-B4TN-4_S.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BNlTFsGm.css">
+    <script type="module" crossorigin src="/assets/index-n1wRExLJ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Cw7UwvNw.css">
   </head>
   <body>
     <div class="app-shell">
@@ -17,17 +17,15 @@
             Mehrere Voices teilen sich einen Transport. Jede Voice hat eigene Exciter-, Modal-
             und Envelope-Settings, nur das BPM bleibt global.
           </p>
+          <div class="button-row hero-transport-buttons">
+            <button id="start-button" type="button">Start</button>
+            <button id="trigger-button" type="button" class="ghost">Trigger</button>
+            <button id="init-state-button" type="button" class="ghost">Init State</button>
+          </div>
         </div>
 
         <div class="header-stack">
           <div class="header-toolbar">
-            <div class="button-row header-transport-buttons">
-              <button id="start-button" type="button">Start</button>
-              <button id="trigger-button" type="button" class="ghost">Trigger</button>
-              <button id="init-state-button" type="button" class="ghost">Init State</button>
-              <button id="random-tempo-button" type="button" class="ghost">BPM Random</button>
-            </div>
-
             <label class="control header-tempo-control">
               <span>Tempo</span>
               <div class="value-row">
@@ -39,8 +37,32 @@
                   value="118"
                   aria-label="Tempo Wert"
                 />
+                <button id="random-tempo-button" type="button" class="ghost header-tempo-random-button">BPM Random</button>
               </div>
               <input id="tempo-input" type="range" min="48" max="192" step="1" value="118" />
+            </label>
+
+            <label class="control header-step-random-control">
+              <span>Per Step Chance</span>
+              <div class="value-row">
+                <input
+                  id="step-random-chance-value-input"
+                  class="value-input"
+                  type="text"
+                  inputmode="decimal"
+                  value="0"
+                  aria-label="Per Step Chance Wert"
+                />
+              </div>
+              <input
+                id="step-random-chance-input"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="0"
+              />
+              <p class="panel-note header-step-random-note" id="step-random-chance-note"></p>
             </label>
 
             <div class="header-voice-strip">

@@ -92,7 +92,14 @@ export async function persistUserPresets(userPresets) {
   }
 }
 
-export function createUserPresetSnapshot(voices, name, existingPreset = null, tempo = null, masterBusMode = null) {
+export function createUserPresetSnapshot(
+  voices,
+  name,
+  existingPreset = null,
+  tempo = null,
+  masterBusMode = null,
+  stepRandomizationChance = null,
+) {
   const timestamp = Date.now();
 
   return createPresetFromVoices(voices, {
@@ -103,6 +110,7 @@ export function createUserPresetSnapshot(voices, name, existingPreset = null, te
     updatedAt: timestamp,
     tempo,
     masterBusMode,
+    stepRandomizationChance,
   });
 }
 
@@ -118,12 +126,16 @@ export function loadSessionState() {
 
   const activeVoiceId = Number(payload?.activeVoiceId);
   const tempo = Number(payload?.tempo);
+  const stepRandomizationChance = Number(payload?.stepRandomizationChance);
 
   return {
     running: false,
     tempo: Number.isFinite(tempo) ? tempo : 118,
     activeVoiceId,
     voices,
+    stepRandomizationChance: Number.isFinite(stepRandomizationChance)
+      ? Math.min(100, Math.max(0, stepRandomizationChance))
+      : 0,
     masterBus: normalizeMasterBusState(payload?.masterBus),
   };
 }
@@ -133,6 +145,7 @@ export function persistSessionState(state) {
     version: 1,
     tempo: state.tempo,
     activeVoiceId: state.activeVoiceId,
+    stepRandomizationChance: state.stepRandomizationChance,
     voices: state.voices.map((voice) => serializeVoiceState(voice)),
     masterBus: serializeMasterBusState(state.masterBus),
   });

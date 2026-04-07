@@ -107,6 +107,11 @@ button.danger {
   align-content: start;
 }
 
+.hero-transport-buttons {
+  margin-top: 0.2rem;
+  align-items: center;
+}
+
 .eyebrow {
   margin: 0 0 0.2rem;
   font-family: "Avenir Next Condensed", "Arial Narrow", "Franklin Gothic Medium", sans-serif;
@@ -379,7 +384,7 @@ h3 {
 .header-toolbar {
   display: grid;
   gap: 0.62rem;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 270px);
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
   align-items: start;
 }
 
@@ -394,6 +399,26 @@ h3 {
 
 .header-tempo-control .value-row {
   min-height: 1rem;
+  justify-content: space-between;
+}
+
+.header-tempo-random-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.header-step-random-control {
+  gap: 0.28rem;
+  padding: 0.62rem 0.72rem;
+}
+
+.header-step-random-control .value-row {
+  min-height: 1rem;
+}
+
+.header-step-random-note {
+  min-height: 2rem;
+  font-size: 0.74rem;
 }
 
 .header-voice-strip {

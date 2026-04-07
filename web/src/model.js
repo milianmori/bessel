@@ -167,6 +167,7 @@ export function createPresetFromVoices(voices, metadata = {}) {
       voices,
       tempo: metadata.tempo ?? null,
       masterBusMode: metadata.masterBusMode ?? null,
+      stepRandomizationChance: metadata.stepRandomizationChance ?? null,
     },
   });
 }
@@ -230,6 +231,10 @@ export function serializePresetState(preset) {
 
   if (normalized.masterBusMode) {
     serializedPreset.masterBusMode = normalized.masterBusMode;
+  }
+
+  if (normalized.stepRandomizationChance !== null) {
+    serializedPreset.stepRandomizationChance = normalized.stepRandomizationChance;
   }
 
   return serializedPreset;
@@ -445,6 +450,9 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
   const primaryVoice = voices[0] ?? normalizeVoicePayload(data);
   const tempo = normalizePresetTempo(data?.tempo ?? data?.bpm);
   const masterBusMode = normalizePresetMasterBusMode(data?.masterBusMode ?? data?.masterBus?.mode);
+  const stepRandomizationChance = normalizePresetStepRandomizationChance(
+    data?.stepRandomizationChance ?? data?.step_randomization_chance,
+  );
 
   return {
     id: normalizePresetId(id) ?? Date.now(),
@@ -456,6 +464,7 @@ function normalizePresetDefinition({ id, name, source = "factory", createdAt = n
     ...primaryVoice,
     tempo,
     masterBusMode,
+    stepRandomizationChance,
   };
 }
 
@@ -790,6 +799,15 @@ function normalizePresetMasterBusMode(value) {
   }
 
   return normalizeMasterBusMode(value);
+}
+
+function normalizePresetStepRandomizationChance(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? clamp(numeric, 0, 100) : null;
 }
 
 function sanitizeName(value, fallback) {
