@@ -552,6 +552,7 @@ h3 {
 .header-voice-toggle-group {
   display: flex;
   gap: 0.22rem;
+  flex-wrap: wrap;
 }
 
 .header-voice-toggle {
@@ -563,6 +564,15 @@ h3 {
   text-transform: uppercase;
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.header-voice-action {
+  min-width: 2.25rem;
+  padding-left: 0.34rem;
+  padding-right: 0.34rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.03em;
+  text-transform: none;
 }
 
 .header-voice-mute-toggle.is-on {
@@ -811,6 +821,15 @@ select {
   align-items: center;
 }
 
+.voice-macro-actions {
+  justify-content: flex-end;
+  align-items: end;
+}
+
+.voice-macro-actions .control.compact {
+  min-width: 140px;
+}
+
 .voice-mute-button.is-on {
   border-color: rgba(242, 95, 92, 0.24);
   background: rgba(242, 95, 92, 0.14);
@@ -1006,6 +1025,10 @@ canvas {
   }
 
   .voice-actions {
+    justify-content: flex-start;
+  }
+
+  .voice-macro-actions {
     justify-content: flex-start;
   }
 

@@ -1145,11 +1145,40 @@ function renderHeaderVoiceControls() {
     soloButton.className = "ghost header-voice-toggle header-voice-solo-toggle";
     soloButton.textContent = "S";
 
-    toggleGroup.append(muteButton, soloButton);
+    const triggerButton = document.createElement("button");
+    triggerButton.type = "button";
+    triggerButton.className = "ghost header-voice-toggle header-voice-action header-voice-trigger-toggle";
+    triggerButton.textContent = "Trig";
+
+    const refreshButton = document.createElement("button");
+    refreshButton.type = "button";
+    refreshButton.className = "ghost header-voice-toggle header-voice-action header-voice-refresh-toggle";
+    refreshButton.textContent = "Neu";
+
+    const soundRandomButton = document.createElement("button");
+    soundRandomButton.type = "button";
+    soundRandomButton.className = "ghost header-voice-toggle header-voice-action header-voice-sound-random-toggle";
+    soundRandomButton.textContent = "RS";
+
+    const randomButton = document.createElement("button");
+    randomButton.type = "button";
+    randomButton.className = "ghost header-voice-toggle header-voice-action header-voice-random-toggle";
+    randomButton.textContent = "RA";
+
+    toggleGroup.append(muteButton, soloButton, triggerButton, refreshButton, soundRandomButton, randomButton);
     root.append(focusButton, toggleGroup);
     elements.headerVoiceList.append(root);
 
-    const view = { root, focusButton, muteButton, soloButton };
+    const view = {
+      root,
+      focusButton,
+      muteButton,
+      soloButton,
+      triggerButton,
+      refreshButton,
+      soundRandomButton,
+      randomButton,
+    };
     headerVoiceViews.set(voice.voiceId, view);
 
     focusButton.addEventListener("click", () => {
@@ -1162,6 +1191,22 @@ function renderHeaderVoiceControls() {
 
     soloButton.addEventListener("click", () => {
       toggleVoiceSolo(voice.voiceId);
+    });
+
+    triggerButton.addEventListener("click", () => {
+      regenerateVoicePattern(voice.voiceId, { preserveMode: true });
+    });
+
+    refreshButton.addEventListener("click", () => {
+      regenerateVoicePattern(voice.voiceId);
+    });
+
+    soundRandomButton.addEventListener("click", () => {
+      randomizeVoiceSound(voice.voiceId);
+    });
+
+    randomButton.addEventListener("click", () => {
+      randomizeVoice(voice.voiceId);
     });
 
     refreshHeaderVoiceControl(view);
@@ -1191,6 +1236,16 @@ function refreshHeaderVoiceControl(view) {
   view.soloButton.setAttribute("aria-pressed", String(voice.solo));
   view.muteButton.title = voice.muted ? `Voice ${voiceIndex + 1} entmuten` : `Voice ${voiceIndex + 1} muten`;
   view.soloButton.title = voice.solo ? `Solo fuer Voice ${voiceIndex + 1} aus` : `Voice ${voiceIndex + 1} solo`;
+  view.muteButton.setAttribute("aria-label", view.muteButton.title);
+  view.soloButton.setAttribute("aria-label", view.soloButton.title);
+  view.triggerButton.title = `Voice ${voiceIndex + 1} Pattern im aktuellen Mode neu erzeugen`;
+  view.refreshButton.title = `Voice ${voiceIndex + 1} neuen Pattern-Mode ziehen`;
+  view.soundRandomButton.title = `Voice ${voiceIndex + 1} Sound randomisieren`;
+  view.randomButton.title = `Voice ${voiceIndex + 1} komplett randomisieren`;
+  view.triggerButton.setAttribute("aria-label", view.triggerButton.title);
+  view.refreshButton.setAttribute("aria-label", view.refreshButton.title);
+  view.soundRandomButton.setAttribute("aria-label", view.soundRandomButton.title);
+  view.randomButton.setAttribute("aria-label", view.randomButton.title);
   view.root.classList.toggle("is-active", isActive);
   view.root.classList.toggle("is-muted", voice.muted);
   view.root.classList.toggle("is-solo", voice.solo);
@@ -1219,10 +1274,9 @@ function createVoiceCardShell(voice, index) {
         <p class="voice-state-line"></p>
       </div>
       <div class="button-row voice-actions">
-        <button type="button" class="ghost voice-focus-button">Fokus</button>
         <button type="button" class="ghost voice-mute-button"></button>
         <button type="button" class="ghost voice-solo-button"></button>
-        <button type="button" class="ghost voice-random-button">Random</button>
+        <button type="button" class="ghost voice-random-button">${getVoiceRandomButtonLabel(voice.voiceType)}</button>
         ${appState.voices.length > 1 ? '<button type="button" class="ghost danger voice-remove-button">Entfernen</button>' : ""}
       </div>
     </div>
@@ -1234,14 +1288,17 @@ function createVoiceCardShell(voice, index) {
             <p class="eyebrow">Makro</p>
             <h3 class="voice-macro-title">Voice Settings</h3>
           </div>
-          <label class="control compact">
-            <span>Voice Type</span>
-            <select class="voice-type-select">
-              <option value="perc">Perc</option>
-              <option value="kick">Kick</option>
-              <option value="subbass">Sub-Bass</option>
-            </select>
-          </label>
+          <div class="button-row voice-macro-actions">
+            <button type="button" class="ghost voice-sound-random-button">${getVoiceSoundRandomButtonLabel(voice.voiceType)}</button>
+            <label class="control compact">
+              <span>Voice Type</span>
+              <select class="voice-type-select">
+                <option value="perc">Perc</option>
+                <option value="kick">Kick</option>
+                <option value="subbass">Sub-Bass</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div class="controls-grid voice-scalar-controls"></div>
         <div class="voice-step-random-section">
@@ -1303,6 +1360,7 @@ function createVoiceCardShell(voice, index) {
             <h3>Pattern</h3>
           </div>
           <div class="button-row">
+            <button type="button" class="ghost voice-pattern-trigger-button">Trig</button>
             <button type="button" class="ghost voice-pattern-refresh-button">Neu</button>
           </div>
         </div>
@@ -1325,13 +1383,13 @@ function createVoiceCardShell(voice, index) {
   return {
     root,
     title: root.querySelector(".voice-card-title"),
-    focusButton: root.querySelector(".voice-focus-button"),
     randomButton: root.querySelector(".voice-random-button"),
     muteButton: root.querySelector(".voice-mute-button"),
     soloButton: root.querySelector(".voice-solo-button"),
     removeButton: root.querySelector(".voice-remove-button"),
     typeSelect: root.querySelector(".voice-type-select"),
     stateLine: root.querySelector(".voice-state-line"),
+    soundRandomButton: root.querySelector(".voice-sound-random-button"),
     macroTitle: root.querySelector(".voice-macro-title"),
     scalarControls: root.querySelector(".voice-scalar-controls"),
     stepRandomControls: root.querySelector(".voice-step-random-controls"),
@@ -1340,6 +1398,7 @@ function createVoiceCardShell(voice, index) {
     clickCanvas: root.querySelector(".voice-click-canvas"),
     envelopeCanvas: root.querySelector(".voice-envelope-canvas"),
     ampsCanvas: root.querySelector(".voice-amps-canvas"),
+    patternTriggerButton: root.querySelector(".voice-pattern-trigger-button"),
     patternRefreshButton: root.querySelector(".voice-pattern-refresh-button"),
     patternSourceSelect: root.querySelector(".voice-pattern-source-select"),
     patternModeSelect: root.querySelector(".voice-pattern-mode-select"),
@@ -1419,14 +1478,14 @@ function initializeVoiceCard(view, voiceId, index) {
     setActiveVoice(voiceId);
   });
 
-  view.focusButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    setActiveVoice(voiceId);
-  });
-
   view.randomButton.addEventListener("click", (event) => {
     event.stopPropagation();
     randomizeVoice(voiceId);
+  });
+
+  view.soundRandomButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    randomizeVoiceSound(voiceId);
   });
 
   view.muteButton.addEventListener("click", (event) => {
@@ -1442,6 +1501,11 @@ function initializeVoiceCard(view, voiceId, index) {
   view.typeSelect.addEventListener("change", (event) => {
     event.stopPropagation();
     switchVoiceType(voiceId, view.typeSelect.value);
+  });
+
+  view.patternTriggerButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    regenerateVoicePattern(voiceId, { preserveMode: true });
   });
 
   view.patternRefreshButton.addEventListener("click", (event) => {
@@ -1700,15 +1764,11 @@ function getVoiceMacroLabel(voiceType) {
 }
 
 function getVoiceRandomButtonLabel(voiceType) {
-  if (voiceType === "kick") {
-    return "Random Kick";
-  }
+  return "Random All";
+}
 
-  if (voiceType === "subbass") {
-    return "Random Sub";
-  }
-
-  return "Random";
+function getVoiceSoundRandomButtonLabel(voiceType) {
+  return "Random Sound";
 }
 
 function normalizeVoiceType(voiceType) {
@@ -1934,6 +1994,7 @@ function refreshVoiceView(view) {
   view.macroTitle.textContent = getVoiceMacroLabel(voice.voiceType);
   view.stateLine.textContent = describeVoiceState(voice);
   view.randomButton.textContent = getVoiceRandomButtonLabel(voice.voiceType);
+  view.soundRandomButton.textContent = getVoiceSoundRandomButtonLabel(voice.voiceType);
   view.muteButton.textContent = "Mute";
   view.soloButton.textContent = "Solo";
   view.muteButton.setAttribute("aria-pressed", String(voice.muted));
@@ -1942,6 +2003,7 @@ function refreshVoiceView(view) {
   view.soloButton.classList.toggle("is-on", voice.solo);
   view.muteButton.title = voice.muted ? `Voice ${voiceIndex + 1} entmuten` : `Voice ${voiceIndex + 1} muten`;
   view.soloButton.title = voice.solo ? `Solo fuer Voice ${voiceIndex + 1} aus` : `Voice ${voiceIndex + 1} solo`;
+  view.soundRandomButton.title = `Voice ${voiceIndex + 1} Sound randomisieren, Pattern behalten`;
   view.root.classList.toggle("is-muted", voice.muted);
   view.root.classList.toggle("is-solo", voice.solo);
   view.root.classList.toggle("is-suppressed", hasSoloVoices() && !voice.solo);
@@ -2009,7 +2071,6 @@ function refreshActiveVoiceStyles() {
   voiceViews.forEach((view, voiceId) => {
     const isActive = appState.activeVoiceId === voiceId;
     view.root.classList.toggle("is-active", isActive);
-    view.focusButton.textContent = isActive ? "Im Fokus" : "Fokus";
   });
 
   refreshHeaderVoiceControls();
@@ -2159,7 +2220,8 @@ function updateVoicePatternSelection(voiceId, nextSettings = {}) {
   setStatus(`Voice ${voiceIndex + 1} Pattern: ${describePatternSelection(voice)}.`);
 }
 
-function regenerateVoicePattern(voiceId) {
+function regenerateVoicePattern(voiceId, options = {}) {
+  const { preserveMode = false } = options;
   const voice = getVoiceById(voiceId);
   const voiceIndex = getVoiceIndexById(voiceId);
   const view = voiceViews.get(voiceId);
@@ -2168,7 +2230,7 @@ function regenerateVoicePattern(voiceId) {
     return;
   }
 
-  if (!shouldUseClassicWebPattern(voice.ampPatternSource)) {
+  if (!preserveMode && !shouldUseClassicWebPattern(voice.ampPatternSource)) {
     const nextPatternMode = getRandomPatternModeValue(getPatternModeValue(voice));
     const normalizedPatternMode = applyPatternModeValue(nextPatternMode, voice);
     voice.ampMode = normalizedPatternMode.ampMode;
@@ -2179,10 +2241,14 @@ function regenerateVoicePattern(voiceId) {
   refreshVoiceView(view);
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll();
-  setStatus(`Voice ${voiceIndex + 1} Step-Pattern neu gezogen: ${describePatternSelection(voice)}.`);
+  setStatus(
+    preserveMode
+      ? `Voice ${voiceIndex + 1} Step-Pattern im aktuellen Mode neu erzeugt: ${describePatternSelection(voice)}.`
+      : `Voice ${voiceIndex + 1} Step-Pattern neu gezogen: ${describePatternSelection(voice)}.`,
+  );
 }
 
-function randomizePercVoiceState(voice) {
+function randomizePercSoundState(voice) {
   getVoiceScalarDefinitions("perc")
     .filter(
       (definition) =>
@@ -2197,8 +2263,6 @@ function randomizePercVoiceState(voice) {
     });
 
   voice.clickShape = createRandomClickShapeValues(voice.clickShape.length);
-  randomizeVoicePatternMode(voice);
-  voice.amps = buildAmpPatternForVoice(voice);
   voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
   randomizePercLowEndDecay(voice);
 }
@@ -2207,7 +2271,7 @@ function createRandomClickShapeValues(length = 64) {
   return Array.from({ length }, () => Math.random());
 }
 
-function randomizeKickVoiceState(voice) {
+function randomizeKickSoundState(voice) {
   voice.kickBodyFreqHz = randomInRange(38, 72, 0.1);
   voice.kickBodyDecayMs = randomInRange(160, 620, 1);
   voice.kickPitchDropSt = randomInRange(6, 16, 0.1);
@@ -2218,8 +2282,6 @@ function randomizeKickVoiceState(voice) {
   voice.kickNoiseDecayMs = randomInRange(10, 70, 0.1);
   voice.kickDrive = randomInRange(0.04, 0.32, 0.001);
   voice.kickTone = randomInRange(0.35, 0.92, 0.001);
-  randomizeVoicePatternMode(voice);
-  voice.amps = buildAmpPatternForVoice(voice);
 }
 
 function randomizeSubBassPattern(voice) {
@@ -2239,7 +2301,7 @@ function randomizeSubBassPattern(voice) {
   voice.rhythmMode = normalizedPatternMode.rhythmMode;
 }
 
-function randomizeSubBassVoiceState(voice) {
+function randomizeSubBassSoundState(voice) {
   voice.subBassFreqHz = randomInRange(32, 68, 0.1);
   voice.subBassAttackMs = randomInRange(0, 24, 0.1);
   voice.subBassDecayMs = randomInRange(180, 980, 1);
@@ -2247,8 +2309,42 @@ function randomizeSubBassVoiceState(voice) {
   voice.subBassSubLevel = randomInRange(0.38, 0.94, 0.001);
   voice.subBassDrive = randomInRange(0.02, 0.26, 0.001);
   voice.subBassTone = randomInRange(0.12, 0.62, 0.001);
+}
+
+function randomizePercVoiceState(voice) {
+  randomizePercSoundState(voice);
+  randomizeVoicePatternMode(voice);
+  voice.amps = buildAmpPatternForVoice(voice);
+}
+
+function randomizeKickVoiceState(voice) {
+  randomizeKickSoundState(voice);
+  randomizeVoicePatternMode(voice);
+  voice.amps = buildAmpPatternForVoice(voice);
+}
+
+function randomizeSubBassVoiceState(voice) {
+  randomizeSubBassSoundState(voice);
   randomizeSubBassPattern(voice);
   voice.amps = buildAmpPatternForVoice(voice);
+}
+
+function randomizeVoiceSoundState(voice) {
+  if (!voice) {
+    return;
+  }
+
+  if (voice.voiceType === "kick") {
+    randomizeKickSoundState(voice);
+    return;
+  }
+
+  if (voice.voiceType === "subbass") {
+    randomizeSubBassSoundState(voice);
+    return;
+  }
+
+  randomizePercSoundState(voice);
 }
 
 function randomizeVoiceState(voice) {
@@ -2284,6 +2380,25 @@ function randomizeVoice(voiceId) {
   setActiveVoice(voiceId, { syncAnalysis: false });
   syncAll({ resetVoiceIds: [voiceId], measureMasterBus: "immediate" });
   setStatus(`${getVoiceTypeLabel(voice.voiceType)} ${voiceIndex + 1} randomisiert. Pattern: ${describePatternSelection(voice)}.`);
+}
+
+function randomizeVoiceSound(voiceId) {
+  const voice = getVoiceById(voiceId);
+  const voiceIndex = getVoiceIndexById(voiceId);
+  const view = voiceViews.get(voiceId);
+
+  if (!voice || voiceIndex === -1 || !view) {
+    return;
+  }
+
+  randomizeVoiceSoundState(voice);
+
+  refreshVoiceView(view);
+  setActiveVoice(voiceId, { syncAnalysis: false });
+  syncAll({ resetVoiceIds: [voiceId], measureMasterBus: "immediate" });
+  setStatus(
+    `${getVoiceTypeLabel(voice.voiceType)} ${voiceIndex + 1} Sound randomisiert. Pattern bleibt: ${describePatternSelection(voice)}.`,
+  );
 }
 
 async function saveStackAsUserPreset() {
