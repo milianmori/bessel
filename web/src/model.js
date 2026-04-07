@@ -522,7 +522,7 @@ function normalizeVoicePayload(raw = {}) {
     ),
     pitchEnvRange: clamp(
       readScalar(raw.pitchEnvRange ?? raw.pitch_env_range, DEFAULT_PRESET_VALUES.pitchEnvRange),
-      -24,
+      -2,
       24,
     ),
     noiseLevel: clamp(

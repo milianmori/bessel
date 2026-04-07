@@ -134,11 +134,7 @@ const RUNAWAY_STATE_LIMIT = 64;
 const TWO_PI = Math.PI * 2;
 
 function createVoiceRuntime(config) {
-  const fallbackFrequencies = Array.isArray(config.frequencies) ? config.frequencies : new Array(16).fill(220);
-  const fallbackQCoefficients = Array.isArray(config.qCoefficients)
-    ? config.qCoefficients
-    : new Array(fallbackFrequencies.length).fill(0.03);
-  const modeConfig = resolvePercModeConfig(config, fallbackFrequencies, fallbackQCoefficients);
+  const frequencies = Array.isArray(config.frequencies) ? config.frequencies : new Array(16).fill(220);
 
   return {
     voiceId: config.voiceId,
@@ -176,12 +172,13 @@ function createVoiceRuntime(config) {
     subBassTone: 0.34,
     clickShape: new Float32Array(64).fill(0.4),
     amps: new Float32Array(16).fill(0.65),
-    centerBank: createModeBankRuntime(modeConfig.centerFrequencies, modeConfig.centerQCoefficients),
-    sideBank: createModeBankRuntime(modeConfig.sideFrequencies, modeConfig.sideQCoefficients),
+    frequencies: Float32Array.from(frequencies),
+    qCoefficients: new Float32Array(frequencies.length).fill(0.03),
     noiseEnvelopePoints: [
       { time: 0, value: 0.89, curve: 0 },
       { time: 0.78, value: 0, curve: -0.845 },
     ],
+    modeStates: createModeStates(frequencies.length),
     panLeft: 1,
     panRight: 0,
     clickIndex: 64,
@@ -237,7 +234,7 @@ function applyVoiceConfig(voice, config) {
   }
 
   if (typeof config.pitchEnvRange === "number") {
-    voice.pitchEnvRange = clamp(config.pitchEnvRange, -48, 48);
+    voice.pitchEnvRange = clamp(config.pitchEnvRange, -2, 24);
   }
 
   if (typeof config.noiseLevel === "number") {
@@ -325,9 +322,14 @@ function applyVoiceConfig(voice, config) {
     voice.amps = Float32Array.from(config.amps);
   }
 
-  const modeConfig = resolvePercModeConfig(config);
-  applyModeBankConfig(voice.centerBank, modeConfig.centerFrequencies, modeConfig.centerQCoefficients);
-  applyModeBankConfig(voice.sideBank, modeConfig.sideFrequencies, modeConfig.sideQCoefficients);
+  if (Array.isArray(config.frequencies)) {
+    voice.frequencies = Float32Array.from(config.frequencies);
+    voice.modeStates = resizeModeStates(voice.modeStates, voice.frequencies.length);
+  }
+
+  if (Array.isArray(config.qCoefficients)) {
+    voice.qCoefficients = Float32Array.from(config.qCoefficients);
+  }
 
   if (Array.isArray(config.noiseEnvelopePoints)) {
     voice.noiseEnvelopePoints = config.noiseEnvelopePoints.map((point) => ({
@@ -342,14 +344,6 @@ function createModeStates(length) {
   return Array.from({ length }, () => ({ d1: 0, d2: 0 }));
 }
 
-function createModeBankRuntime(frequencies = [], qCoefficients = []) {
-  return {
-    frequencies: Float32Array.from(frequencies),
-    qCoefficients: Float32Array.from(qCoefficients),
-    modeStates: createModeStates(frequencies.length),
-  };
-}
-
 function resizeModeStates(existingStates, targetLength) {
   const states = existingStates.slice(0, targetLength);
 
@@ -358,36 +352,6 @@ function resizeModeStates(existingStates, targetLength) {
   }
 
   return states;
-}
-
-function applyModeBankConfig(bank, frequencies = [], qCoefficients = []) {
-  bank.frequencies = Float32Array.from(frequencies);
-  bank.qCoefficients = Float32Array.from(qCoefficients);
-  bank.modeStates = resizeModeStates(bank.modeStates, bank.frequencies.length);
-}
-
-function resolvePercModeConfig(config, fallbackFrequencies = [], fallbackQCoefficients = []) {
-  const centerFrequencies = Array.isArray(config.centerFrequencies)
-    ? config.centerFrequencies
-    : fallbackFrequencies.slice(0, 4);
-  const sideFrequencies = Array.isArray(config.sideFrequencies)
-    ? config.sideFrequencies
-    : fallbackFrequencies.slice(4);
-  const centerQCoefficients = Array.isArray(config.centerQCoefficients)
-    ? config.centerQCoefficients
-    : fallbackQCoefficients.slice(0, centerFrequencies.length);
-  const sideQCoefficients = Array.isArray(config.sideQCoefficients)
-    ? config.sideQCoefficients
-    : fallbackQCoefficients.slice(4, 4 + sideFrequencies.length);
-
-  return {
-    centerFrequencies,
-    centerQCoefficients: centerQCoefficients.length
-      ? centerQCoefficients
-      : new Array(centerFrequencies.length).fill(0.03),
-    sideFrequencies,
-    sideQCoefficients: sideQCoefficients.length ? sideQCoefficients : new Array(sideFrequencies.length).fill(0.03),
-  };
 }
 
 function resetVoiceState(voice, clearModes) {
@@ -418,8 +382,7 @@ function resetVoiceState(voice, clearModes) {
   voice.subBassToneState = 0;
 
   if (clearModes) {
-    voice.centerBank.modeStates = voice.centerBank.modeStates.map(() => ({ d1: 0, d2: 0 }));
-    voice.sideBank.modeStates = voice.sideBank.modeStates.map(() => ({ d1: 0, d2: 0 }));
+    voice.modeStates = voice.modeStates.map(() => ({ d1: 0, d2: 0 }));
   }
 }
 
@@ -563,38 +526,22 @@ function renderVoiceFrame(voice) {
 function renderPercFrame(voice) {
   const excitation = renderVoiceExcitation(voice);
   const transpose = renderVoicePitchEnvelope(voice);
-  const center = renderModeBank(voice.centerBank, excitation, transpose);
-  const side = renderModeBank(voice.sideBank, excitation, transpose);
-  const centerCount = Math.max(1, voice.centerBank.modeStates.length);
-  const sideCount = Math.max(1, voice.sideBank.modeStates.length);
+  let center = 0;
+  let sideLeft = 0;
+  let sideRight = 0;
+  const centerCount = Math.min(4, voice.modeStates.length);
+  const sideCount = Math.max(1, voice.modeStates.length - centerCount);
 
-  // Match the Max patch's mc.mixdown~ @autogain 1 behavior:
-  // each mixdown scales by outputChannels / inputChannels, here 1 / channelCount.
-  const mixedCenter = center / Math.max(1, centerCount);
-  const mixedLeft = (side * voice.panLeft) / sideCount;
-  const mixedRight = (side * voice.panRight) / sideCount;
-  const left = Math.tanh(mixedCenter + mixedLeft);
-  const right = Math.tanh(mixedCenter + mixedRight);
-
-  return {
-    left: left * voice.masterGain,
-    right: right * voice.masterGain,
-  };
-}
-
-function renderModeBank(bank, excitation, transpose) {
-  let sum = 0;
-
-  for (let modeIndex = 0; modeIndex < bank.modeStates.length; modeIndex += 1) {
-    const modeState = bank.modeStates[modeIndex];
-    const baseFrequency = bank.frequencies[modeIndex] || 20;
+  for (let modeIndex = 0; modeIndex < voice.modeStates.length; modeIndex += 1) {
+    const modeState = voice.modeStates[modeIndex];
+    const baseFrequency = voice.frequencies[modeIndex] || 20;
     const transposedFrequency = clamp(
       baseFrequency * 2 ** (transpose / 12),
       20,
       sampleRate / MAX_MODAL_FREQUENCY_FACTOR,
     );
     const f = 2 * Math.sin((Math.PI * transposedFrequency) / sampleRate);
-    const q = bank.qCoefficients[modeIndex] || 0.03;
+    const q = voice.qCoefficients[modeIndex] || 0.03;
 
     const high = sanitize(excitation - modeState.d2 - q * modeState.d1);
     const band = sanitize(high * f + modeState.d1);
@@ -602,10 +549,23 @@ function renderModeBank(bank, excitation, transpose) {
 
     modeState.d1 = band;
     modeState.d2 = low;
-    sum += band;
+
+    if (modeIndex < centerCount) {
+      center += band;
+    } else {
+      sideLeft += band * voice.panLeft;
+      sideRight += band * voice.panRight;
+    }
   }
 
-  return sum;
+  const mixedCenter = center / Math.sqrt(Math.max(1, centerCount));
+  const mixedLeft = sideLeft / Math.sqrt(sideCount);
+  const mixedRight = sideRight / Math.sqrt(sideCount);
+
+  return {
+    left: (mixedCenter + mixedLeft) * voice.masterGain,
+    right: (mixedCenter + mixedRight) * voice.masterGain,
+  };
 }
 
 function renderKickFrame(voice) {

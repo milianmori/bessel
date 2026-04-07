@@ -164,7 +164,7 @@ const percVoiceScalarDefinitions = [
   { key: "damping", label: "Damping", min: 0, max: 1, step: 0.001 },
   { key: "overtones", label: "Overtones", min: 0, max: 1, step: 0.001 },
   { key: "pitchEnvDurMs", label: "Pitch Env Dur", min: 0, max: 500, step: 1 },
-  { key: "pitchEnvRange", label: "Pitch Env Range", min: -24, max: 24, step: 0.1 },
+  { key: "pitchEnvRange", label: "Pitch Env Range", min: -2, max: 24, step: 0.1 },
   { key: "pitchEnvCurve", label: "Pitch Env Curve", min: -1, max: 1, step: 0.001 },
   { key: "noiseLevel", label: "Noise Volume", min: 0, max: 1, step: 0.001 },
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },

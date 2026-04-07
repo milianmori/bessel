@@ -234,7 +234,7 @@ function applyVoiceConfig(voice, config) {
   }
 
   if (typeof config.pitchEnvRange === "number") {
-    voice.pitchEnvRange = clamp(config.pitchEnvRange, -48, 48);
+    voice.pitchEnvRange = clamp(config.pitchEnvRange, -2, 24);
   }
 
   if (typeof config.noiseLevel === "number") {
