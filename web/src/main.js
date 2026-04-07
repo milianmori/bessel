@@ -171,6 +171,11 @@ const percVoiceScalarDefinitions = [
   { key: "nzEnvDurMs", label: "Noise Dur", min: 0, max: 220, step: 0.1 },
   { key: "masterGain", label: "Master Gain", min: 0, max: 1.4, step: 0.001 },
 ];
+const percLowEndDecayDefinition = percVoiceScalarDefinitions.find((definition) => definition.key === "lowEndDecay");
+const AUTO_LOW_END_DECAY_KEYS = new Set(["tuning", "size"]);
+const PERC_LOW_END_AUTO_MIN_HZ = 55;
+const PERC_LOW_END_AUTO_MAX_HZ = 320;
+const PERC_LOW_END_RANDOM_DEEP_THRESHOLD = 0.55;
 
 const kickVoiceScalarDefinitions = [
   { key: "kickBodyFreqHz", label: "Body Freq", min: 28, max: 120, step: 0.1 },
@@ -1551,6 +1556,81 @@ function estimateSubBassToneHz(voice) {
   return clamp(80 + voice.subBassTone ** 1.5 * 3200, 40, 22050);
 }
 
+function syncScalarControlDisplay(view, definition, value) {
+  if (!view || !definition) {
+    return;
+  }
+
+  const input = view.controlInputs.get(definition.key);
+  const valueInput = view.controlValueInputs.get(definition.key);
+
+  if (!input) {
+    return;
+  }
+
+  input.value = String(toSliderValue(definition, value));
+  syncKeyboardValueInput(valueInput, value, definition.step);
+}
+
+function computePercLowEndDepth(voice) {
+  if (!voice || normalizeVoiceType(voice.voiceType) !== "perc") {
+    return 0;
+  }
+
+  const sampleRate = engine.context?.sampleRate ?? 44100;
+  const analysis = computeVoiceAnalysis(voice, sampleRate);
+  const frequencies = Array.isArray(analysis?.frequencies) ? analysis.frequencies : [];
+  const minFrequency = frequencies.length ? Math.min(...frequencies) : PERC_LOW_END_AUTO_MAX_HZ;
+  const clampedFrequency = clamp(minFrequency, PERC_LOW_END_AUTO_MIN_HZ, PERC_LOW_END_AUTO_MAX_HZ);
+  const minLog = Math.log2(PERC_LOW_END_AUTO_MIN_HZ);
+  const maxLog = Math.log2(PERC_LOW_END_AUTO_MAX_HZ);
+  const normalized = 1 - (Math.log2(clampedFrequency) - minLog) / Math.max(maxLog - minLog, 0.000001);
+
+  return clamp(normalized, 0, 1);
+}
+
+function autoTunePercLowEndDecay(voice) {
+  if (!voice || normalizeVoiceType(voice.voiceType) !== "perc" || !percLowEndDecayDefinition) {
+    return voice?.lowEndDecay ?? 1;
+  }
+
+  const depth = computePercLowEndDepth(voice);
+  const value = 1.12 - 0.74 * depth ** 0.85;
+  voice.lowEndDecay = quantizeValue(
+    value,
+    percLowEndDecayDefinition.min,
+    percLowEndDecayDefinition.max,
+    percLowEndDecayDefinition.step,
+  );
+  return voice.lowEndDecay;
+}
+
+function randomizePercLowEndDecay(voice) {
+  if (!voice || normalizeVoiceType(voice.voiceType) !== "perc" || !percLowEndDecayDefinition) {
+    return voice?.lowEndDecay ?? 1;
+  }
+
+  const depth = computePercLowEndDepth(voice);
+
+  if (depth < PERC_LOW_END_RANDOM_DEEP_THRESHOLD) {
+    voice.lowEndDecay = randomizeScalarValue(percLowEndDecayDefinition);
+    return voice.lowEndDecay;
+  }
+
+  const lower = percLowEndDecayDefinition.min;
+  const upper = clamp(0.78 + (1 - depth) * 0.34, lower + percLowEndDecayDefinition.step, 1.02);
+  const bias = Math.random() ** (1.7 + depth * 2.1);
+  const value = lower + bias * (upper - lower);
+
+  voice.lowEndDecay = quantizeValue(
+    value,
+    percLowEndDecayDefinition.min,
+    percLowEndDecayDefinition.max,
+    percLowEndDecayDefinition.step,
+  );
+  return voice.lowEndDecay;
+}
+
 function rebuildVoiceScalarControls(view, voiceId, voiceType) {
   view.currentScalarType = voiceType;
   view.controlInputs.clear();
@@ -1584,8 +1664,13 @@ function rebuildVoiceScalarControls(view, voiceId, voiceType) {
 
       setActiveVoice(voiceId, { syncAnalysis: false });
       voice[definition.key] = value;
-      input.value = String(toSliderValue(definition, value));
-      syncKeyboardValueInput(valueInput, value, definition.step);
+      syncScalarControlDisplay(view, definition, value);
+
+      if (normalizeVoiceType(voice.voiceType) === "perc" && AUTO_LOW_END_DECAY_KEYS.has(definition.key)) {
+        autoTunePercLowEndDecay(voice);
+        syncScalarControlDisplay(view, percLowEndDecayDefinition, voice.lowEndDecay);
+      }
+
       syncAll();
     };
 
@@ -1934,6 +2019,7 @@ function randomizePercVoiceState(voice) {
   randomizeVoicePatternMode(voice);
   voice.amps = buildAmpPatternForVoice(voice);
   voice.noiseEnvelope.points = createRandomNoiseEnvelopePoints();
+  randomizePercLowEndDecay(voice);
 }
 
 function randomizeKickVoiceState(voice) {
